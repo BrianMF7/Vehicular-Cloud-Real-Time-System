@@ -1,4 +1,6 @@
 package gui;
 
-public class OwnerPanel {
+import javax.swing.JPanel;
+
+public class OwnerPanel extends JPanel {
 }
