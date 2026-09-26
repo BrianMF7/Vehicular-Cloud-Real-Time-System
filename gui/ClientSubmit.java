@@ -2,6 +2,10 @@ package gui;
 
 import storage.FileManager;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
 public class ClientSubmit implements SubmitStrategy {
     private final String clientId;
     private final String jobId;
@@ -43,6 +47,17 @@ public class ClientSubmit implements SubmitStrategy {
         } catch (NumberFormatException ex) {
             throw new Exception("Duration must be a valid number.");
         }
+        //This is an exception handling for the date. I commented it since I saw that the text file has a different date.
+        /*try {
+            DateTimeFormatter formatter =
+                    DateTimeFormatter.ofPattern("MM-dd-yyyy");
+
+            LocalDate deadlineDate =
+                    LocalDate.parse(deadline.trim(), formatter);
+
+        } catch (DateTimeParseException exception) {
+            throw new Exception("Invalid deadline date (must be MM-dd-yyyy)");
+        }*/
     }
 
     private String buildRecord() {
