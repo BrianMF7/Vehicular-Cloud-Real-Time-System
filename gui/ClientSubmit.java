@@ -48,7 +48,7 @@ public class ClientSubmit implements SubmitStrategy {
             throw new Exception("Duration must be a valid number.");
         }
         //This is an exception handling for the date. I commented it since I saw that the text file has a different date.
-        /*try {
+        try {
             DateTimeFormatter formatter =
                     DateTimeFormatter.ofPattern("MM-dd-yyyy");
 
@@ -57,7 +57,7 @@ public class ClientSubmit implements SubmitStrategy {
 
         } catch (DateTimeParseException exception) {
             throw new Exception("Invalid deadline date (must be MM-dd-yyyy)");
-        }*/
+        }
     }
 
     private String buildRecord() {
