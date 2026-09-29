@@ -10,10 +10,17 @@ public class OwnerSubmit implements SubmitStrategy {
     private final String year;
     private final String arrivalTime;
     private final String departureTime;
+    private final String computePower;
 
     public OwnerSubmit(String ownerId, String vehicleId, String make, 
                        String model, String year, String arrivalTime, 
                        String departureTime) {
+        this(ownerId, vehicleId, make, model, year, arrivalTime, departureTime, null);
+    }
+
+    public OwnerSubmit(String ownerId, String vehicleId, String make,
+                       String model, String year, String arrivalTime,
+                       String departureTime, String computePower) {
         this.ownerId = ownerId;
         this.vehicleId = vehicleId;
             this.make = make;
@@ -21,6 +28,7 @@ public class OwnerSubmit implements SubmitStrategy {
          this.year = year;
         this.arrivalTime = arrivalTime;
         this.departureTime = departureTime;
+        this.computePower = computePower;
         }
 
     public void submit() throws Exception {
@@ -60,6 +68,16 @@ public class OwnerSubmit implements SubmitStrategy {
              } catch (NumberFormatException ex) {
             throw new Exception("Year must be a right number.");
             }
+        if (computePower != null) {
+            try {
+                double value = Double.parseDouble(computePower.trim());
+                if (!Double.isFinite(value) || value <= 0) {
+                    throw new Exception("Compute power must be a positive number.");
+                }
+            } catch (NumberFormatException ex) {
+                throw new Exception("Compute power must be a positive number.");
+            }
+        }
     }
 
       private String buildRecord() {
@@ -70,7 +88,8 @@ public class OwnerSubmit implements SubmitStrategy {
                trim(model) + "|" + 
                trim(year) + "|" + 
                trim(arrivalTime) + "|" + 
-               trim(departureTime);
+               trim(departureTime) +
+               (computePower == null ? "" : "|" + trim(computePower));
     }
 
     private boolean isEmpty(String value) {
