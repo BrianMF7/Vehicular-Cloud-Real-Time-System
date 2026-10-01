@@ -15,16 +15,21 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
+// This is the main window you see when the app opens.
+// First you pick a button. Then you fill out a form.
 public class MainFrame extends JFrame implements SaveListener {
-    //Keep track of this window so panels can tell us when they save
+    // Remembers this window so a form can say "save worked" or "save failed".
     private static MainFrame active;
 
+    // We keep two views in here and flip between them: the buttons, or the form.
     private final CardLayout cards = new CardLayout();
     private final JPanel cardPanel = new JPanel(cards);
+    // Empty space in the middle where we drop in the owner or client form.
     private final JPanel formHolder = new JPanel(new BorderLayout());
     private final JPanel backBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
     private final JLabel stepLabel = new JLabel("Step 1 of 2");
     private final JLabel promptLabel = new JLabel("Pick one option to start.");
+    // Remembers who you are right now either owner, client, or nobody yet.
     private String role = "";
 
     public MainFrame() {
@@ -32,13 +37,13 @@ public class MainFrame extends JFrame implements SaveListener {
         active = this;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        //Top part with step and instruction
+        // Top of the window that shows which step you're on, plus a short tip.
         JPanel header = new JPanel(new GridLayout(2, 1, 0, 8));
         header.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         header.add(stepLabel);
         header.add(promptLabel);
 
-        //Two big buttons for role choice
+        // The two big choices on the first screen.
         JButton rentButton = new JButton("Rent out a car");
         JButton jobButton = new JButton("Submit a job");
         Dimension choiceSize = new Dimension(220, 40);
@@ -51,10 +56,11 @@ public class MainFrame extends JFrame implements SaveListener {
         choices.add(jobButton);
 
         formHolder.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        // Put both views into the flipper. Buttons first, form second.
         cardPanel.add(choices, "choose");
         cardPanel.add(formHolder, "form");
 
-        //Back button stays at bottom
+        // Back button sits at the bottom of the window.
         backBar.setBorder(BorderFactory.createEmptyBorder(16, 8, 8, 8));
         JButton backButton = new JButton("Back");
         backBar.add(backButton);
@@ -64,49 +70,55 @@ public class MainFrame extends JFrame implements SaveListener {
         add(cardPanel, BorderLayout.CENTER);
         add(backBar, BorderLayout.SOUTH);
 
+        // Clicking this takes you to the owner form.
         rentButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
                 showForm("owner");
             }
         });
+        // Clicking this takes you to the client form.
         jobButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
                 showForm("client");
             }
         });
+        // Clicking Back goes back to the first screen.
         backButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
                 showChoice();
             }
         });
 
-        //Make window big enough for all the form fields
+        // Set a roomy size once, then show the first screen in the middle of the monitor.
         setPreferredSize(new Dimension(550, 550));
         showChoice();
         pack();
         setLocationRelativeTo(null);
     }
 
+    // Forms call this to say the save worked.
     public static void reportSaved() {
         if (active != null) {
             active.saved();
         }
     }
 
+    // Forms call this to say the save failed.
     public static void reportFailed(String message) {
         if (active != null) {
             active.failed(message);
         }
     }
 
+    // Pop up "Saved.", then clear the form so someone else can fill it out.
     public void saved() {
         JOptionPane.showMessageDialog(this, "Saved.");
-        //Make a fresh form for the next person
         if (!role.isEmpty()) {
             showForm(role);
         }
     }
 
+    // Pop up an error. If we got no message, use a simple default one.
     public void failed(String message) {
         if (message == null || message.trim().isEmpty()) {
             message = "Check the form and try again.";
@@ -114,17 +126,19 @@ public class MainFrame extends JFrame implements SaveListener {
         JOptionPane.showMessageDialog(this, message, "Could not save", JOptionPane.ERROR_MESSAGE);
     }
 
+    // Show the first screen again and hide Back.
     private void showChoice() {
         role = "";
         stepLabel.setText("Step 1 of 2");
         promptLabel.setText("Pick one option to start.");
         backBar.setVisible(false);
         cards.show(cardPanel, "choose");
-        //Dont pack here or window changes size
+        // Redraw only. Don't shrink or grow the window.
         revalidate();
         repaint();
     }
 
+    // Show the second screen. Grab the right form and put it in the middle.
     private void showForm(String nextRole) {
         role = nextRole;
         JPanel form = PanelFactory.create(nextRole);
@@ -136,7 +150,7 @@ public class MainFrame extends JFrame implements SaveListener {
 
         backBar.setVisible(true);
         cards.show(cardPanel, "form");
-        //Just refresh whats showing, dont resize
+        // Redraw the form. Keep the window the same size.
         formHolder.revalidate();
         formHolder.repaint();
     }
