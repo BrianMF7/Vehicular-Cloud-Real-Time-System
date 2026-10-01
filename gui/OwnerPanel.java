@@ -18,9 +18,11 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 
 public class OwnerPanel extends JPanel {
+    //How we read and write dates
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter
             .ofPattern("MM-dd-uuuu HH:mm").withResolverStyle(ResolverStyle.STRICT);
 
+    //All the text boxes for owner info
     private final JTextField ownerId = new JTextField(22);
     private final JTextField make = new JTextField(22);
     private final JTextField model = new JTextField(22);
@@ -33,6 +35,7 @@ public class OwnerPanel extends JPanel {
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
+        //put all the labels and fields in the middle
         JPanel fields = new JPanel(new GridBagLayout());
         addRow(fields, 0, "Vehicle owner ID / full name *", ownerId);
         addRow(fields, 1, "Make *", make);
@@ -43,6 +46,7 @@ public class OwnerPanel extends JPanel {
         addRow(fields, 6, "Compute power (units) *", computePower);
         add(fields, BorderLayout.CENTER);
 
+        //button and hint go at the bottom
         JPanel footer = new JPanel(new BorderLayout(0, 8));
         footer.add(new JLabel("Times use your computer's local time. * Required"), BorderLayout.NORTH);
         JButton submit = new JButton("Register car");
@@ -65,6 +69,7 @@ public class OwnerPanel extends JPanel {
     }
 
     private void registerCar() {
+        //grab everything the user typed
         String owner = ownerId.getText().trim();
         String carMake = make.getText().trim();
         String carModel = model.getText().trim();
@@ -72,6 +77,8 @@ public class OwnerPanel extends JPanel {
         String arrivalText = arrival.getText().trim();
         String departureText = departure.getText().trim();
         String powerText = computePower.getText().trim();
+        
+        //make sure nothing is blank
         if (owner.isEmpty() || carMake.isEmpty() || carModel.isEmpty() || carYear.isEmpty()
                 || arrivalText.isEmpty() || departureText.isEmpty() || powerText.isEmpty()) {
             showError("Complete every required vehicle field.");
@@ -79,11 +86,13 @@ public class OwnerPanel extends JPanel {
         }
 
         try {
+            //check the dates are real and make sense
             LocalDateTime arrivalTime = LocalDateTime.parse(arrivalText, TIME_FORMAT);
             LocalDateTime departureTime = LocalDateTime.parse(departureText, TIME_FORMAT);
             if (!departureTime.isAfter(arrivalTime) || !departureTime.isAfter(LocalDateTime.now())) {
                 throw new IllegalArgumentException("Departure must be after arrival and in the future.");
             }
+            //make a random id for this car
             String vehicleId = UUID.randomUUID().toString();
             SubmitStrategy submission = new OwnerSubmit(owner, vehicleId, carMake, carModel,
                     carYear, arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT), powerText);
