@@ -16,7 +16,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
 public class MainFrame extends JFrame implements SaveListener {
-    /* The open window, so a panel can report a save without this class building that panel's fields. */
+    //Keep track of this window so panels can tell us when they save
     private static MainFrame active;
 
     private final CardLayout cards = new CardLayout();
@@ -32,11 +32,13 @@ public class MainFrame extends JFrame implements SaveListener {
         active = this;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        //Top part with step and instruction
         JPanel header = new JPanel(new GridLayout(2, 1, 0, 8));
         header.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         header.add(stepLabel);
         header.add(promptLabel);
 
+        //Two big buttons for role choice
         JButton rentButton = new JButton("Rent out a car");
         JButton jobButton = new JButton("Submit a job");
         Dimension choiceSize = new Dimension(220, 40);
@@ -52,6 +54,7 @@ public class MainFrame extends JFrame implements SaveListener {
         cardPanel.add(choices, "choose");
         cardPanel.add(formHolder, "form");
 
+        //Back button stays at bottom
         backBar.setBorder(BorderFactory.createEmptyBorder(16, 8, 8, 8));
         JButton backButton = new JButton("Back");
         backBar.add(backButton);
@@ -77,7 +80,10 @@ public class MainFrame extends JFrame implements SaveListener {
             }
         });
 
+        //Make window big enough for all the form fields
+        setPreferredSize(new Dimension(550, 550));
         showChoice();
+        pack();
         setLocationRelativeTo(null);
     }
 
@@ -95,7 +101,7 @@ public class MainFrame extends JFrame implements SaveListener {
 
     public void saved() {
         JOptionPane.showMessageDialog(this, "Saved.");
-        /* A new panel starts empty, which clears the form for the next entry. */
+        //Make a fresh form for the next person
         if (!role.isEmpty()) {
             showForm(role);
         }
@@ -114,7 +120,9 @@ public class MainFrame extends JFrame implements SaveListener {
         promptLabel.setText("Pick one option to start.");
         backBar.setVisible(false);
         cards.show(cardPanel, "choose");
-        pack();
+        //Dont pack here or window changes size
+        revalidate();
+        repaint();
     }
 
     private void showForm(String nextRole) {
@@ -128,8 +136,8 @@ public class MainFrame extends JFrame implements SaveListener {
 
         backBar.setVisible(true);
         cards.show(cardPanel, "form");
+        //Just refresh whats showing, dont resize
         formHolder.revalidate();
         formHolder.repaint();
-        pack();
     }
 }
