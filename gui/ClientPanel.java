@@ -27,6 +27,7 @@ public class ClientPanel extends JPanel {
     private JButton submitButton = new JButton("Submit job");
 
     public ClientPanel(){
+        //set the maon panel layout
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         
@@ -47,14 +48,14 @@ public class ClientPanel extends JPanel {
         jobPanel.add(jobDurationField);
         jobPanel.add(jobDeadlineLabel);
         jobPanel.add(jobDeadlineField);
-
+        //Position each panel in the mian panel
         add(identityPanel, BorderLayout.NORTH);
         add(jobPanel, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.SOUTH);
 
         //Submit button at the bottom
         buttonPanel.add(submitButton);
-
+        //This section is what happens when you press the button
         submitButton.addActionListener(event -> {
             //Get what the user typed
             String clientId = clientIdField.getText();
