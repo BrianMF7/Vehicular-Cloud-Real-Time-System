@@ -61,7 +61,11 @@ public class ClientSubmit implements SubmitStrategy {
     }
     //takes the information that the users enter and stores it into vechicular_cloud_log.txt
     private String buildRecord() {
+        String username = MainFrame.getCurrentUser();
+        String email = MainFrame.getCurrentEmail();
         return "CLIENT|" + 
+               trim(username) + "|" +
+               trim(email) + "|" +
                trim(clientId) + "|" + 
                trim(jobId) + "|" + 
                trim(duration) + "|" + 
