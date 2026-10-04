@@ -18,6 +18,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
+import javax.swing.JTextField;
 
 //This is the main window you see when the app opens.
 //First you pick a button. Then you fill out a form.
@@ -35,6 +36,14 @@ public class MainFrame extends JFrame implements SaveListener {
     private final JLabel promptLabel = new JLabel("Pick one option to start.");
     //Remembers who you are right now either owner, client, or nobody yet.
     private String role = "";
+    //Stores the username for this session
+     private String currentUser = "";
+    //Stores the email for this session
+      private String currentEmail = "";
+    //Text field where user types their name
+       private final JTextField usernameField = new JTextField(20);
+    //Text field where user types their email
+    private final JTextField emailField = new JTextField(20);
 
     public MainFrame() {
         super("Vehicular Cloud Console");
@@ -73,17 +82,24 @@ public class MainFrame extends JFrame implements SaveListener {
             "times, making their compute resources available to the cloud.\n\n" +
             "Clients can submit jobs with specific duration requirements and " +
             "deadlines to be processed by available vehicles.\n\n" +
-            "Choose an option below to get started."
+            "Enter your name and email below to get started."
         );
         instructions.setEditable(false);
         instructions.setWrapStyleWord(true);
-             instructions.setLineWrap(true);
+        instructions.setLineWrap(true);
         instructions.setOpaque(false);
-           instructions.setFocusable(false);
+        instructions.setFocusable(false);
         instructions.setFont(defaultFont);
-           welcomeContent.add(instructions);
+        welcomeContent.add(instructions);
         
         welcomeScreen.add(welcomeContent, BorderLayout.CENTER);
+        
+        //Username and email section sits between instructions and buttons
+        JPanel userSection = new JPanel(new GridLayout(2, 2, 8, 8));
+        userSection.add(new JLabel("Name:"));
+        userSection.add(usernameField);
+        userSection.add(new JLabel("Email:"));
+        userSection.add(emailField);
         
         //The two big choices at the bottom of welcome screen
         JButton rentButton = new JButton("Rent out a car");
@@ -96,7 +112,12 @@ public class MainFrame extends JFrame implements SaveListener {
         choices.add(rentButton);
         choices.add(jobButton);
         
-        welcomeScreen.add(choices, BorderLayout.SOUTH);
+        //Put username and buttons together at the bottom
+        JPanel bottomSection = new JPanel(new BorderLayout(0, 16));
+        bottomSection.add(userSection, BorderLayout.NORTH);
+        bottomSection.add(choices, BorderLayout.CENTER);
+        
+        welcomeScreen.add(bottomSection, BorderLayout.SOUTH);
 
         formHolder.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         //Put both views into the flipper. Welcome first, form second.
@@ -116,13 +137,17 @@ public class MainFrame extends JFrame implements SaveListener {
         //Clicking this takes you to the owner form.
         rentButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
-                showForm("owner");
+                if (checkUsername()) {
+                    showForm("owner");
+                }
             }
         });
         //Clicking this takes you to the client form.
         jobButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
-                showForm("client");
+                if (checkUsername()) {
+                    showForm("client");
+                }
             }
         });
         //Clicking Back goes back to the first screen.
@@ -169,9 +194,40 @@ public class MainFrame extends JFrame implements SaveListener {
         JOptionPane.showMessageDialog(this, message, "Could not save", JOptionPane.ERROR_MESSAGE);
     }
 
+    //Make sure user typed name and email before continuing
+    private boolean checkUsername() {
+        String name = usernameField.getText().trim();
+        String email = emailField.getText().trim();
+        if (name.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter your name to continue.");
+            return false;
+        }
+        if (email.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter your email to continue.");
+            return false;
+        }
+        currentUser = name;
+        currentEmail = email;
+        return true;
+    }
+
+    //Gets the current username for saving with records
+    public static String getCurrentUser() {
+        return active != null ? active.currentUser : "";
+    }
+
+    //Gets the current email for saving with records
+    public static String getCurrentEmail() {
+        return active != null ? active.currentEmail : "";
+    }
+
     //Show the first screen again and hide Back.
     private void showChoice() {
         role = "";
+        currentUser = "";
+        currentEmail = "";
+        usernameField.setText("");
+        emailField.setText("");
         stepLabel.setText("Step 1 of 2");
         promptLabel.setText("Pick one option to start.");
         backBar.setVisible(false);

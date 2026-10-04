@@ -81,9 +81,13 @@ public class OwnerSubmit implements SubmitStrategy {
     }
 
       private String buildRecord() {
-        return "OWNER|" + 
-               trim(ownerId) + "|" + 
-               trim(vehicleId) + "|" + 
+        String username = MainFrame.getCurrentUser();
+        String email = MainFrame.getCurrentEmail();
+         return "OWNER|" +
+               trim(username) + "|" +
+                 trim(email) + "|" +
+                 trim(ownerId) + "|" +
+                trim(vehicleId) + "|" +
                trim(make) + "|" + 
                trim(model) + "|" + 
                trim(year) + "|" + 
