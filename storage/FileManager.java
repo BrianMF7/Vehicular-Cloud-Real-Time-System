@@ -15,10 +15,19 @@ import java.util.List;
 
 public class FileManager implements RecordWriter {
                 private static FileManager instance;
-         private final String filePath = "vehicular_cloud_log.txt";
+         private final Path filePath;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private FileManager() {
+        this(Paths.get("vehicular_cloud_log.txt"));
+    }
+
+    // Lets tests use a temporary file instead of the real application log.
+    public FileManager(Path filePath) {
+        if (filePath == null) {
+            throw new IllegalArgumentException("File path is required.");
+        }
+        this.filePath = filePath;
         ensureFileExists();
     }
 
@@ -30,10 +39,13 @@ public class FileManager implements RecordWriter {
              }
 
       private void ensureFileExists() {
-          Path path = Paths.get(filePath);
-                  if (!Files.exists(path)) {
+                  if (!Files.exists(filePath)) {
             try {
-                    Files.createFile(path);
+                    Path parent = filePath.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    Files.createFile(filePath);
                     } catch (IOException ex) {
                 System.err.println("No log file created: " + ex.getMessage());
              }
@@ -48,7 +60,7 @@ public class FileManager implements RecordWriter {
         String timestamp = LocalDateTime.now().format(formatter);
              String line = timestamp + "|" + record;
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, true))) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile(), true))) {
                   writer.write(line);
             writer.newLine();
               } catch (IOException ex) {
@@ -60,7 +72,7 @@ public class FileManager implements RecordWriter {
     public List<String> loadAllRecords() throws Exception {
         List<String> records = new ArrayList<>();
         
-         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+         try (BufferedReader reader = new BufferedReader(new FileReader(filePath.toFile()))) {
                  String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.trim().isEmpty()) {
@@ -104,7 +116,7 @@ public class FileManager implements RecordWriter {
     
     //Get the file path
     public String getFilePath() {
-        return filePath;
+        return filePath.toString();
            }
 }
 
