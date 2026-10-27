@@ -113,4 +113,21 @@ class StorageTest {
         assertNull(server.getResult("missing-job"));
         assertNull(server.getLatestCheckpoint("missing-job"));
     }
+
+    // Verifies that invalid, incomplete, or unexpected client records gets ignored
+    @Test
+    void shouldRejectInvalidClientRecords() {
+        assertNull(RecordParser.parseClientRecord(
+                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com||job-4|10-30-2026|6|11-03-2026"));
+        assertNull(RecordParser.parseClientRecord(
+                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|0|11-03-2026"));
+        assertNull(RecordParser.parseClientRecord(
+                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|six|11-03-2026"));
+        assertNull(RecordParser.parseClientRecord(
+                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|6|11-03-2026|0"));
+        assertNull(RecordParser.parseClientRecord(
+                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10/30/2026|6|11-03-2026"));
+        assertNull(RecordParser.parseClientRecord(
+                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|6|11-03-2026|2|extra"));
+    }
 }
