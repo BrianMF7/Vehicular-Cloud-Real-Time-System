@@ -2,20 +2,27 @@ package tests.auth;
 
 import model.User;
 import storage.UserStorage;
+
+import java.nio.file.Path;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 //JUnit 5 test for login features
 public class LoginTest {
     
     private UserStorage storage;
+
+    @TempDir
+    Path tempDir;
     
     @BeforeEach
     public void setUp() {
-        //Get instance and clear for fresh test
+        //Use a temp file so tests do not erase the real users.txt
         storage = UserStorage.getInstance();
-        storage.clearAllUsers();
+        storage.useFileForTesting(tempDir.resolve("users.txt"));
     }
     
     @Test
@@ -72,11 +79,36 @@ public class LoginTest {
     
     @Test
     public void testCheckPassword() {
-        //Create user and test password check
-        User user = new User("Test User", "test@test.com", "mypass");
+        //The user stores a hash, not the typed password
+        User user = new User("Test User", "test@test.com", User.hashPassword("mypass"));
         
         assertTrue(user.checkPassword("mypass"), "Correct password should return true");
         assertFalse(user.checkPassword("wrongpass"), "Wrong password should return false");
+    }
+
+    @Test
+    public void testEmailIgnoresCapitalLetters() {
+        storage.signUp("John Doe", "John@test.com", "pass123");
+
+        assertTrue(storage.emailExists("john@test.com"), "Email check should ignore capitals");
+        assertFalse(storage.signUp("Jane", "JOHN@test.com", "other"), "Same email should not sign up twice");
+
+        User user = storage.signIn("john@test.com", "pass123");
+        assertNotNull(user, "Sign in should accept a different email casing");
+        assertEquals("john@test.com", user.getEmail(), "Saved email should be lowercase");
+    }
+
+    @Test
+    public void testAccountStaysAfterReload() {
+        Path accountFile = tempDir.resolve("users.txt");
+        storage.useFileForTesting(accountFile);
+        assertTrue(storage.signUp("John Doe", "john@test.com", "pass123"));
+
+        //Load the same file again, the way the app does on the next start
+        storage.useFileForTesting(accountFile);
+        User user = storage.signIn("john@test.com", "pass123");
+        assertNotNull(user, "Account should still be there after reload");
+        assertEquals("John Doe", user.getName());
     }
     
     @Test
