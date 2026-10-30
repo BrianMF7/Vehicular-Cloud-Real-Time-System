@@ -10,6 +10,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -99,6 +101,86 @@ public class FileManager implements RecordWriter {
         
         return ownerRecords;
           }
+
+    /** Vehicle rows for the owner's table, including older saved registrations. */
+    public List<VehicleEntry> readVehicles() throws Exception {
+        List<VehicleEntry> vehicles = new ArrayList<>();
+        for (String record : loadOwnerRecords()) {
+            String[] fields = record.split("\\|", -1);
+            if (fields.length < 9 || !"OWNER".equals(fields[1])) {
+                continue;
+            }
+            // Current records include username and email; older ones start with owner ID.
+            int ownerIndex = fields.length >= 11 ? 4 : 2;
+            String accountEmail = ownerIndex == 4 ? fields[3].trim() : "";
+            if (fields.length <= ownerIndex + 6 || fields[ownerIndex + 1].trim().isEmpty()) {
+                continue;
+            }
+            vehicles.add(new VehicleEntry(accountEmail, fields[ownerIndex + 1].trim(),
+                    fields[ownerIndex].trim(), fields[ownerIndex + 2].trim(),
+                    fields[ownerIndex + 3].trim(), fields[ownerIndex + 4].trim(),
+                    fields[ownerIndex + 5].trim(), fields[ownerIndex + 6].trim()));
+        }
+        return vehicles;
+    }
+
+    public static final class VehicleEntry {
+        private static final DateTimeFormatter VEHICLE_TIME = DateTimeFormatter
+                .ofPattern("MM-dd-uuuu HH:mm").withResolverStyle(ResolverStyle.STRICT);
+
+        private final String vehicleId;
+        private final String accountEmail;
+        private final String ownerId;
+        private final String make;
+        private final String model;
+        private final String year;
+        private final String arrivalTime;
+        private final String departureTime;
+
+        private VehicleEntry(String accountEmail, String vehicleId, String ownerId, String make, String model,
+                             String year, String arrivalTime, String departureTime) {
+            this.accountEmail = accountEmail;
+            this.vehicleId = vehicleId;
+            this.ownerId = ownerId;
+            this.make = make;
+            this.model = model;
+            this.year = year;
+            this.arrivalTime = arrivalTime;
+            this.departureTime = departureTime;
+        }
+
+        public String getVehicleId() {
+            return vehicleId;
+        }
+
+        public String getOwnerId() {
+            return ownerId;
+        }
+
+        public boolean belongsToAccount(String email) {
+            return email != null && !email.isEmpty() && accountEmail.equalsIgnoreCase(email);
+        }
+
+        public String getCarModel() {
+            return make + " " + model + " (" + year + ")";
+        }
+
+        public String getStatusAt(LocalDateTime now) {
+            try {
+                LocalDateTime arrival = LocalDateTime.parse(arrivalTime, VEHICLE_TIME);
+                LocalDateTime departure = LocalDateTime.parse(departureTime, VEHICLE_TIME);
+                if (!departure.isAfter(arrival)) {
+                    return "Unknown";
+                }
+                if (now.isBefore(arrival)) {
+                    return "Registered";
+                }
+                return now.isBefore(departure) ? "Available" : "Unavailable";
+            } catch (DateTimeParseException ex) {
+                return "Unknown";
+            }
+        }
+    }
     
     //Load only client records
     public List<String> loadClientRecords() throws Exception {

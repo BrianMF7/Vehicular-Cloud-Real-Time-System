@@ -18,7 +18,7 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.11.4</version>
-            <scope>test</scope>
+            <!-- IntelliJ compiles the nested tests directory from the repository-root source tree. -->
         </dependency>
     </dependencies>
 

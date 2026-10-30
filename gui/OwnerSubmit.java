@@ -59,6 +59,12 @@ public class OwnerSubmit implements SubmitStrategy {
           if (isEmpty(departureTime)) {
             throw new Exception("Departure time is required.");
         }
+        for (String value : new String[] {MainFrame.getCurrentUser(), MainFrame.getCurrentEmail(),
+                ownerId, vehicleId, make, model, year, arrivalTime, departureTime, computePower}) {
+            if (value != null && (value.contains("|") || value.contains("\n") || value.contains("\r"))) {
+                throw new Exception("Vehicle fields cannot contain | or line breaks.");
+            }
+        }
 
         try {
                 int yearValue = Integer.parseInt(year.trim());
@@ -66,7 +72,7 @@ public class OwnerSubmit implements SubmitStrategy {
                 throw new Exception("Year must be between 1995 and 2027.");
             }
              } catch (NumberFormatException ex) {
-            throw new Exception("Year must be a right number.");
+            throw new Exception("Year must be a valid number.");
             }
         if (computePower != null) {
             try {
