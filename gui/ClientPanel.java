@@ -1,114 +1,132 @@
 package gui;
 
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-
 import controller.VehicularCloudController;
 import model.Job;
 import scheduling.ScheduleEntry;
 import scheduling.ScheduleResult;
 
-public class ClientPanel extends JPanel {
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 
-    //All the text boxes for job info
+public class ClientPanel extends JPanel {
     private final JTextField clientIdField = new JTextField(22);
     private final JTextField jobIdField = new JTextField(22);
     private final JTextField jobAvailabilityField = new JTextField(22);
     private final JTextField jobDurationField = new JTextField(22);
     private final JTextField jobDeadlineField = new JTextField(22);
+    private final JTextField priorityField = new JTextField(22);
 
-    //Shows completion times after the button is clicked
-    private final JTextArea results = new JTextArea(8, 30);
+    private final DefaultTableModel tableModel = new DefaultTableModel(
+            new Object[]{"Job ID", "Client ID", "Duration (days)", "Priority",
+                    "Waiting time (days)", "Completion time (days)"}, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+    private final JTable scheduleTable = new JTable(tableModel);
+    private final JLabel averageWaitingTime = new JLabel("Average waiting time: —");
 
     public ClientPanel() {
         setLayout(new BorderLayout(0, 12));
-        setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
-        //Same row layout as the rent car form
+        JPanel titlePanel = new JPanel(new BorderLayout());
+        JLabel title = new JLabel("Submit a Job");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 22f));
+        titlePanel.add(title, BorderLayout.NORTH);
+        titlePanel.add(new JLabel("Enter the job details below. Fields marked * are required."),
+                BorderLayout.SOUTH);
+        titlePanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        add(titlePanel, BorderLayout.NORTH);
+
         JPanel fields = FormRows.fields();
-         FormRows.addRow(fields, 0, "Client ID *", clientIdField);
+        FormRows.addRow(fields, 0, "Client ID *", clientIdField);
         FormRows.addRow(fields, 1, "Job ID *", jobIdField);
         FormRows.addRow(fields, 2, "Job availability (MM-dd-yyyy) *", jobAvailabilityField);
-          FormRows.addRow(fields, 3, "Job duration (days) *", jobDurationField);
-          FormRows.addRow(fields, 4, "Job deadline (MM-dd-yyyy) *", jobDeadlineField);
-        add(fields, BorderLayout.CENTER);
+        FormRows.addRow(fields, 3, "Job duration (days) *", jobDurationField);
+        FormRows.addRow(fields, 4, "Job deadline (MM-dd-yyyy) *", jobDeadlineField);
+        FormRows.addRow(fields, 5, "Priority (positive whole number) *", priorityField);
 
-        results.setEditable(false);
-         results.setLineWrap(true);
-          results.setWrapStyleWord(true);
-        results.setText("Completion times will show here.");
+        JLabel hint = new JLabel("Dates must use MM-dd-yyyy. Duration must fit between availability and deadline.");
+        JPanel form = new JPanel(new BorderLayout(0, 8));
+        form.add(fields, BorderLayout.CENTER);
+        form.add(hint, BorderLayout.SOUTH);
 
-          JButton calculate = new JButton("Calculate completion time");
-        calculate.addActionListener(event -> showCompletionTimes());
-
+        JButton refresh = new JButton("Refresh schedule");
+        refresh.addActionListener(event -> refreshSchedule());
         JButton submit = new JButton("Submit job");
-           submit.addActionListener(event -> submitJob());
-
-          JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        buttons.add(calculate);
+        submit.addActionListener(event -> submitJob());
+        JPanel buttons = new JPanel(new GridLayout(1, 2, 8, 0));
+        buttons.add(refresh);
         buttons.add(submit);
 
-         JPanel bottom = new JPanel(new BorderLayout(0, 8));
-           bottom.add(new JScrollPane(results), BorderLayout.CENTER);
-        bottom.add(buttons, BorderLayout.SOUTH);
-        add(bottom, BorderLayout.SOUTH);
-        }
+        JPanel formSection = new JPanel(new BorderLayout(0, 8));
+        formSection.add(form, BorderLayout.CENTER);
+        formSection.add(buttons, BorderLayout.SOUTH);
 
-    //Ask the controller to schedule every saved job, then show the times on this screen
-    private void showCompletionTimes() {
-        VehicularCloudController controller = new VehicularCloudController();
-           ScheduleResult result = controller.scheduleJobs();
+        scheduleTable.setFillsViewportHeight(true);
+        scheduleTable.setAutoCreateRowSorter(true);
+        JScrollPane tableScroll = new JScrollPane(scheduleTable);
+        JPanel schedulePanel = new JPanel(new BorderLayout(0, 8));
+        JLabel scheduleTitle = new JLabel("Schedule Results");
+        scheduleTitle.setFont(scheduleTitle.getFont().deriveFont(Font.BOLD, 16f));
+        JPanel scheduleHeading = new JPanel(new BorderLayout(0, 4));
+        scheduleHeading.add(scheduleTitle, BorderLayout.NORTH);
+        scheduleHeading.add(new JLabel("Jobs are ordered by priority; lower priority numbers run first."),
+                BorderLayout.SOUTH);
+        schedulePanel.add(scheduleHeading, BorderLayout.NORTH);
+        schedulePanel.add(tableScroll, BorderLayout.CENTER);
+        schedulePanel.add(averageWaitingTime, BorderLayout.SOUTH);
 
-        if (result.getEntries().isEmpty()) {
-            results.setText("No jobs saved yet.");
-            return;
-             }
+        JPanel content = new JPanel(new BorderLayout(0, 16));
+        content.add(formSection, BorderLayout.NORTH);
+        content.add(schedulePanel, BorderLayout.CENTER);
+        add(content, BorderLayout.CENTER);
+    }
 
-        StringBuilder text = new StringBuilder();
-           for (ScheduleEntry entry : result.getEntries()) {
-            Job job = entry.getJob();
-            text.append("Job ID: ").append(job.getJobId());
-               text.append(", Client ID: ").append(job.getClientId());
-            text.append(", Duration: ").append(job.getEstimatedDuration());
-              text.append(", Priority: ").append(job.getPriority());
-            text.append(", Completion time: ").append(entry.getCompletionTime());
-            text.append("\n");
+    private void refreshSchedule() {
+        try {
+            ScheduleResult result = new VehicularCloudController().scheduleJobs();
+            tableModel.setRowCount(0);
+            for (ScheduleEntry entry : result.getEntries()) {
+                Job job = entry.getJob();
+                tableModel.addRow(new Object[]{
+                        job.getJobId(), job.getClientId(), job.getEstimatedDuration(),
+                        job.getPriority(), entry.getWaitingTime(), entry.getCompletionTime()
+                });
+            }
+            averageWaitingTime.setText(result.getEntries().isEmpty()
+                    ? "Average waiting time: —"
+                    : String.format("Average waiting time: %.2f days", result.getAverageWaitingTime()));
+        } catch (RuntimeException ex) {
+            JOptionPane.showMessageDialog(this, "Could not refresh schedule: " + ex.getMessage(),
+                    "Schedule error", JOptionPane.ERROR_MESSAGE);
         }
-        text.append("Average waiting time: ").append(result.getAverageWaitingTime());
-        results.setText(text.toString());
-        results.setCaretPosition(0);
-        }
+    }
 
     private void submitJob() {
-        String clientId = clientIdField.getText().trim();
-          String jobId = jobIdField.getText().trim();
-        String jobAvailability = jobAvailabilityField.getText().trim();
-          String duration = jobDurationField.getText().trim();
-        String deadline = jobDeadlineField.getText().trim();
-
-        ClientSubmit submit = new ClientSubmit(clientId, jobId, jobAvailability, duration, deadline);
+        ClientSubmit submit = new ClientSubmit(
+                clientIdField.getText(), jobIdField.getText(), jobAvailabilityField.getText(),
+                jobDurationField.getText(), jobDeadlineField.getText(), priorityField.getText());
         try {
-               submit.submit();
-            JOptionPane.showMessageDialog(this, "Saved");
+            submit.submit();
+            JOptionPane.showMessageDialog(this, "Job saved.", "Success", JOptionPane.INFORMATION_MESSAGE);
             clearFields();
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, e.getMessage(), "Could not submit job", JOptionPane.ERROR_MESSAGE);
+            refreshSchedule();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Could not submit job",
+                    JOptionPane.ERROR_MESSAGE);
         }
-        }
+    }
 
     private void clearFields() {
         clientIdField.setText("");
-            jobIdField.setText("");
+        jobIdField.setText("");
         jobAvailabilityField.setText("");
-          jobDurationField.setText("");
+        jobDurationField.setText("");
         jobDeadlineField.setText("");
-     }
-      }
+        priorityField.setText("");
+    }
+}
