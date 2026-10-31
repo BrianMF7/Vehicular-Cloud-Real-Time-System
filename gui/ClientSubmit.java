@@ -14,13 +14,20 @@ public class ClientSubmit implements SubmitStrategy {
     private final String jobAvailability;
     private final String duration;
     private final String deadline;
+    private final String priority;
     //constructor used to initialize the client and job information
-    public ClientSubmit(String clientId, String jobId,String jobAvailability, String duration, String deadline) {
+    public ClientSubmit(String clientId, String jobId, String jobAvailability, String duration, String deadline) {
+        this(clientId, jobId, jobAvailability, duration, deadline, "1");
+    }
+
+    public ClientSubmit(String clientId, String jobId, String jobAvailability, String duration,
+                        String deadline, String priority) {
         this.clientId = clientId;
         this.jobId = jobId;
         this.jobAvailability = jobAvailability;
         this.duration = duration;
         this.deadline = deadline;
+        this.priority = priority;
     }
     //check the entered information, create a record and save into file
     public void submit() throws Exception {
@@ -45,6 +52,18 @@ public class ClientSubmit implements SubmitStrategy {
         }
         if (isEmpty(deadline)) {
             throw new Exception("Job deadline is required.");
+        }
+        if (isEmpty(priority)) {
+            throw new Exception("Job priority is required.");
+        }
+        int priorityValue;
+        try {
+            priorityValue = Integer.parseInt(priority.trim());
+        } catch (NumberFormatException ex) {
+            throw new Exception("Priority must be a positive whole number.");
+        }
+        if (priorityValue <= 0) {
+            throw new Exception("Priority must be greater than zero.");
         }
 
         // Validate duration to make sure it is a whole number and less than 0
@@ -106,7 +125,8 @@ public class ClientSubmit implements SubmitStrategy {
                trim(jobId) + "|" +
                trim(jobAvailability) + "|" +
                trim(duration) + "|" + 
-               trim(deadline);
+               trim(deadline) + "|" +
+               trim(priority);
     }
     //checks to see if there is an empty value
     private boolean isEmpty(String value) {

@@ -431,10 +431,18 @@ public class VehicularCloudController {
                 deadline = parts[5];
                 priority = Integer.parseInt(parts[6].trim());
             } else if ("CLIENT".equals(type) && parts.length >= 9) {
-                clientId = parts[4];
-                jobId = parts[5];
-                duration = Integer.parseInt(parts[7].trim());
-                deadline = parts[8];
+                // Current format: CLIENT|username|email|clientId|jobId|availability|duration|deadline|priority
+                clientId = parts[3];
+                jobId = parts[4];
+                duration = Integer.parseInt(parts[6].trim());
+                deadline = parts[7];
+                priority = Integer.parseInt(parts[8].trim());
+            } else if ("CLIENT".equals(type) && parts.length >= 8) {
+                // Previous format without priority.
+                clientId = parts[3];
+                jobId = parts[4];
+                duration = Integer.parseInt(parts[6].trim());
+                deadline = parts[7];
             } else if ("CLIENT".equals(type) && parts.length >= 7) {
                 clientId = parts[2];
                 jobId = parts[3];
