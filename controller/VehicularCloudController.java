@@ -31,6 +31,9 @@ public class VehicularCloudController {
     private final List<Job> jobs;
     // Compute power for each car. The Vehicle class does not store this yet.
     private final Map<String, Double> computeByVehicleId;
+    //Owner name and signed in email for each car.
+    private final Map<String, String> ownerByVehicleId;
+    private final Map<String, String> emailByVehicleId;
     // True when a car is already working on a job.
     private final Map<String, Boolean> inUseByVehicleId;
     // Which car is doing which job.
@@ -60,6 +63,8 @@ public class VehicularCloudController {
         this.vehicles = new ArrayList<Vehicle>();
         this.jobs = new ArrayList<Job>();
         this.computeByVehicleId = new HashMap<String, Double>();
+        this.ownerByVehicleId = new HashMap<String, String>();
+        this.emailByVehicleId = new HashMap<String, String>();
         this.inUseByVehicleId = new HashMap<String, Boolean>();
         this.vehicleIdByJobId = new HashMap<String, String>();
         this.fileManager = FileManager.getInstance();
@@ -126,27 +131,45 @@ public class VehicularCloudController {
         return registerVehicle(vehicle, 0);
     }
 
-    // Add a car and remember how much compute it offers.
+    // dd a car and remember how much compute it offers.
     public boolean registerVehicle(Vehicle vehicle, double compute) {
+        return registerVehicle(vehicle, compute, "", "");
+    }
+
+    //Add a car and remember who registered it.
+    public boolean registerVehicle(Vehicle vehicle, double compute, String ownerId, String accountEmail) {
         if (vehicle == null || isBlank(vehicle.getVehicleId())) {
             return false;
-        }
-        if (findVehicle(vehicle.getVehicleId()) != null) {
+               }
+          if (findVehicle(vehicle.getVehicleId()) != null) {
+            return false;
+         }
+               if (compute < 0) {
             return false;
         }
-        if (compute < 0) {
-            return false;
-        }
+           String vehicleId = vehicle.getVehicleId();
         vehicles.add(vehicle);
-        computeByVehicleId.put(vehicle.getVehicleId(), Double.valueOf(compute));
-        inUseByVehicleId.put(vehicle.getVehicleId(), Boolean.FALSE);
+        computeByVehicleId.put(vehicleId, Double.valueOf(compute));
+        ownerByVehicleId.put(vehicleId, safe(ownerId));
+        emailByVehicleId.put(vehicleId, safe(accountEmail));
+        inUseByVehicleId.put(vehicleId, Boolean.FALSE);
         refreshAvailableCompute();
-        saveLine("VEHICLE|" + vehicle.getVehicleId() + "|" + safe(vehicle.getMake())
+        saveLine("VEHICLE|" + vehicleId + "|" + safe(vehicle.getMake())
                 + "|" + safe(vehicle.getModel()) + "|" + vehicle.getYear()
                 + "|" + safe(vehicle.getArrivalTime()) + "|" + safe(vehicle.getDepartureTime())
-                + "|" + compute);
+                + "|" + compute + "|" + safe(ownerId) + "|" + safe(accountEmail));
         return true;
     }
+
+    public String getVehicleOwnerId(String vehicleId) {
+        String owner = ownerByVehicleId.get(vehicleId);
+             return owner == null ? "" : owner;
+    }
+
+    public String getVehicleAccountEmail(String vehicleId) {
+        String email = emailByVehicleId.get(vehicleId);
+           return email == null ? "" : email;
+         }
 
     // Take a car out of the cloud. Busy cars have to be released first.
     public boolean deregisterVehicle(String vehicleID) {
@@ -159,6 +182,8 @@ public class VehicularCloudController {
         }
         vehicles.remove(vehicle);
         computeByVehicleId.remove(vehicleID);
+        ownerByVehicleId.remove(vehicleID);
+        emailByVehicleId.remove(vehicleID);
         inUseByVehicleId.remove(vehicleID);
         refreshAvailableCompute();
         saveLine("DEREGISTER|" + vehicleID);
@@ -379,6 +404,8 @@ public class VehicularCloudController {
             String arrival;
             String departure;
             double compute;
+            String owner = "";
+            String email = "";
             if ("VEHICLE".equals(type) && parts.length >= 9) {
                 vehicleId = parts[2];
                 make = parts[3];
@@ -387,7 +414,13 @@ public class VehicularCloudController {
                 arrival = parts[6];
                 departure = parts[7];
                 compute = parseCompute(parts[8]);
+                if (parts.length >= 11) {
+                    owner = parts[9];
+                    email = parts[10];
+                }
             } else if ("OWNER".equals(type) && parts.length >= 12) {
+                email = parts[3];
+                owner = parts[4];
                 vehicleId = parts[5];
                 make = parts[6];
                 model = parts[7];
@@ -396,6 +429,7 @@ public class VehicularCloudController {
                 departure = parts[10];
                 compute = parseCompute(parts[11]);
             } else if ("OWNER".equals(type) && parts.length >= 10) {
+                owner = parts[2];
                 vehicleId = parts[3];
                 make = parts[4];
                 model = parts[5];
@@ -411,6 +445,8 @@ public class VehicularCloudController {
             }
             vehicles.add(new Vehicle(vehicleId, make, model, year, arrival, departure));
             computeByVehicleId.put(vehicleId, Double.valueOf(compute));
+            ownerByVehicleId.put(vehicleId, safe(owner));
+            emailByVehicleId.put(vehicleId, safe(email));
             inUseByVehicleId.put(vehicleId, Boolean.FALSE);
         } catch (NumberFormatException ex) {
             // Skip a line that does not have a real year or compute value.

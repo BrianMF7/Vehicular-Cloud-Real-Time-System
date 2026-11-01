@@ -37,7 +37,7 @@ public class OwnerPanel extends JPanel {
       private final JTextField departure = new JTextField(22);
     private final JTextField computePower = new JTextField(22);
     private final DefaultTableModel vehicleRows = new DefaultTableModel(
-            new String[] {"Vehicle ID", "Make", "Model", "Current status"}, 0) {
+            new String[] {"Vehicle ID", "Owner", "Car model", "Current status"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) {
             return false;
@@ -140,11 +140,18 @@ public class OwnerPanel extends JPanel {
                 showError("Compute power must be a positive number.");
                 return;
             }
+            if (containsBreak(owner) || containsBreak(carMake) || containsBreak(carModel)
+                    || containsBreak(arrivalText) || containsBreak(departureText)) {
+                showError("Vehicle fields cannot contain | or line breaks.");
+                return;
+            }
             //Makes a random id for this car
             String vehicleId = UUID.randomUUID().toString();
             Vehicle vehicle = new Vehicle(vehicleId, carMake, carModel, yearValue,
                     arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT));
-            boolean saved = VehicularCloudController.getInstance().registerVehicle(vehicle, power);
+            String accountEmail = MainFrame.getCurrentEmail();
+            boolean saved = VehicularCloudController.getInstance()
+                    .registerVehicle(vehicle, power, owner, accountEmail);
             if (!saved) {
                 showError("Could not register this car.");
                 return;
@@ -172,16 +179,29 @@ public class OwnerPanel extends JPanel {
        }
 
     private void refreshVehicles() {
-        List<Vehicle> vehicles = VehicularCloudController.getInstance().getVehicles();
+        VehicularCloudController controller = VehicularCloudController.getInstance();
+        List<Vehicle> vehicles = controller.getVehicles();
+        String currentEmail = MainFrame.getCurrentEmail();
         LocalDateTime now = LocalDateTime.now();
+        int visibleCount = 0;
         vehicleRows.setRowCount(0);
         for (int i = vehicles.size() - 1; i >= 0; i--) {
             Vehicle vehicle = vehicles.get(i);
-            String carModel = vehicle.getModel() + " (" + vehicle.getYear() + ")";
-            vehicleRows.addRow(new Object[] {vehicle.getVehicleId(), vehicle.getMake(),
+            String savedEmail = controller.getVehicleAccountEmail(vehicle.getVehicleId());
+            if (!currentEmail.isEmpty() && !currentEmail.equalsIgnoreCase(savedEmail)) {
+                continue;
+            }
+            String carModel = vehicle.getMake() + " " + vehicle.getModel() + " (" + vehicle.getYear() + ")";
+            vehicleRows.addRow(new Object[] {vehicle.getVehicleId(),
+                    controller.getVehicleOwnerId(vehicle.getVehicleId()),
                     carModel, statusAt(vehicle, now)});
+            visibleCount++;
         }
-        tableMessage.setText(vehicles.size() + " vehicle(s). Status reflects arrival/departure times.");
+        tableMessage.setText(visibleCount + " vehicle(s). Status reflects arrival/departure times.");
+    }
+
+    private boolean containsBreak(String value) {
+        return value.contains("|") || value.contains("\n") || value.contains("\r");
     }
 
     //Same status labels the table used before, read from the controller's vehicle
