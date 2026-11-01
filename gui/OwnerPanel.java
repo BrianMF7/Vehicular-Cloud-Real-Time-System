@@ -20,7 +20,8 @@ import javax.swing.JTextField;
 import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
 
-import storage.FileManager;
+import controller.VehicularCloudController;
+import model.Vehicle;
 
 public class OwnerPanel extends JPanel {
     //How we read and write dates
@@ -36,7 +37,7 @@ public class OwnerPanel extends JPanel {
       private final JTextField departure = new JTextField(22);
     private final JTextField computePower = new JTextField(22);
     private final DefaultTableModel vehicleRows = new DefaultTableModel(
-            new String[] {"Vehicle ID", "Owner", "Car model", "Current status"}, 0) {
+            new String[] {"Vehicle ID", "Make", "Model", "Current status"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) {
             return false;
@@ -129,20 +130,36 @@ public class OwnerPanel extends JPanel {
                if (!departureTime.isAfter(arrivalTime) || !departureTime.isAfter(LocalDateTime.now())) {
                 throw new IllegalArgumentException("Departure must be after arrival and in the future.");
                }
+            int yearValue = Integer.parseInt(carYear);
+            if (yearValue < 1995 || yearValue > 2027) {
+                showError("Year must be between 1995 and 2027.");
+                return;
+            }
+            double power = Double.parseDouble(powerText);
+            if (!Double.isFinite(power) || power <= 0) {
+                showError("Compute power must be a positive number.");
+                return;
+            }
             //Makes a random id for this car
-                String vehicleId = UUID.randomUUID().toString();
-            SubmitStrategy submission = new OwnerSubmit(owner, vehicleId, carMake, carModel,
-                    carYear, arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT), powerText);
-             submission.submit();
+            String vehicleId = UUID.randomUUID().toString();
+            Vehicle vehicle = new Vehicle(vehicleId, carMake, carModel, yearValue,
+                    arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT));
+            boolean saved = VehicularCloudController.getInstance().registerVehicle(vehicle, power);
+            if (!saved) {
+                showError("Could not register this car.");
+                return;
+            }
             refreshVehicles();
-              JOptionPane.showMessageDialog(this, "Car registered. Vehicle ID: " + vehicleId);
+            JOptionPane.showMessageDialog(this, "Car registered. Vehicle ID: " + vehicleId);
             clearFields();
         } catch (DateTimeParseException ex) {
             showError("Use MM-dd-yyyy HH:mm for arrival and departure, for example 10-01-2026 09:30.");
-          } catch (Exception ex) {
-               showError(ex.getMessage());
+        } catch (NumberFormatException ex) {
+            showError("Year and compute power must be numbers.");
+        } catch (IllegalArgumentException ex) {
+            showError(ex.getMessage());
         }
-        }
+    }
 
     private void clearFields() {
         ownerId.setText("");
@@ -155,24 +172,35 @@ public class OwnerPanel extends JPanel {
        }
 
     private void refreshVehicles() {
+        List<Vehicle> vehicles = VehicularCloudController.getInstance().getVehicles();
+        LocalDateTime now = LocalDateTime.now();
+        vehicleRows.setRowCount(0);
+        for (int i = vehicles.size() - 1; i >= 0; i--) {
+            Vehicle vehicle = vehicles.get(i);
+            String carModel = vehicle.getModel() + " (" + vehicle.getYear() + ")";
+            vehicleRows.addRow(new Object[] {vehicle.getVehicleId(), vehicle.getMake(),
+                    carModel, statusAt(vehicle, now)});
+        }
+        tableMessage.setText(vehicles.size() + " vehicle(s). Status reflects arrival/departure times.");
+    }
+
+    //Same status labels the table used before, read from the controller's vehicle
+    private String statusAt(Vehicle vehicle, LocalDateTime now) {
         try {
-            List<FileManager.VehicleEntry> vehicles = FileManager.getInstance().readVehicles();
-            LocalDateTime now = LocalDateTime.now();
-            String currentEmail = MainFrame.getCurrentEmail();
-            int visibleCount = 0;
-            vehicleRows.setRowCount(0);
-            for (int i = vehicles.size() - 1; i >= 0; i--) {
-                FileManager.VehicleEntry vehicle = vehicles.get(i);
-                if (!currentEmail.isEmpty() && !vehicle.belongsToAccount(currentEmail)) {
-                    continue;
-                }
-                vehicleRows.addRow(new Object[] {vehicle.getVehicleId(), vehicle.getOwnerId(),
-                        vehicle.getCarModel(), vehicle.getStatusAt(now)});
-                visibleCount++;
+            LocalDateTime arrivalTime = LocalDateTime.parse(vehicle.getArrivalTime(), TIME_FORMAT);
+            LocalDateTime departureTime = LocalDateTime.parse(vehicle.getDepartureTime(), TIME_FORMAT);
+            if (!departureTime.isAfter(arrivalTime)) {
+                return "Unknown";
             }
-            tableMessage.setText(visibleCount + " vehicle(s). Status reflects arrival/departure times.");
-        } catch (Exception ex) {
-            tableMessage.setText("Could not refresh vehicles: " + ex.getMessage());
+            if (now.isBefore(arrivalTime)) {
+                return "Registered";
+            }
+            if (now.isBefore(departureTime)) {
+                return "Available";
+            }
+            return "Unavailable";
+        } catch (DateTimeParseException ex) {
+            return "Unknown";
         }
     }
 
