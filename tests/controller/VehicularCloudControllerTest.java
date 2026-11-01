@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import model.Job;
 import model.Vehicle;
-import scheduling.PriorityScheduler;
+import scheduling.ScheduleEntry;
 import scheduling.ScheduleResult;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -42,11 +42,13 @@ class VehicularCloudControllerTest {
         }
     }
 
+    // Start each test with an empty log so leftover records cannot leak in.
     @BeforeEach
     void deleteTestLog() throws IOException {
         Files.deleteIfExists(LOG);
     }
 
+    // Put the real log back after the suite finishes.
     @AfterAll
     static void restoreStashedLog() throws IOException {
         Files.deleteIfExists(LOG);
@@ -284,28 +286,38 @@ class VehicularCloudControllerTest {
         assertTrue(busy.contains("Total available compute: 0.0"));
     }
 
-    // Verifies that waiting times match PriorityScheduler and still include unassigned jobs.
+    // Verifies the assignment example: jobs arrive at time 0, run by priority,
+    // and the controller reports each completion time plus average wait 8.2.
     @Test
-    void shouldMatchSchedulerWaitingTimes() {
+    void shouldComputeCompletionTimesUsingPriority() {
         VehicularCloudController controller = controller();
         List<Job> jobs = Arrays.asList(
                 job("P1", 10, 3), job("P2", 1, 1), job("P3", 2, 4),
                 job("P4", 1, 5), job("P5", 5, 2));
         for (Job job : jobs) {
-            controller.submitJob(job);
+            assertTrue(controller.submitJob(job));
         }
 
-        ScheduleResult expected = new PriorityScheduler().schedule(jobs);
-        ScheduleResult actual = controller.scheduleJobs();
-        assertEquals(8.2, actual.getAverageWaitingTime(), 0.000001);
-        assertEquals(expected.getAverageWaitingTime(), controller.getAverageWaitingTime(), 0.000001);
-        assertEquals("P2", actual.getEntries().get(0).getJob().getJobId());
+        ScheduleResult result = controller.scheduleJobs();
+        assertAssignmentPriorityExample(result);
+        assertEquals(result.getAverageWaitingTime(), controller.getAverageWaitingTime(), 0.000001);
 
+        // Cars are stored, but they do not change the priority completion times.
         controller.registerVehicle(vehicle("car-1"), 10.0);
-        double before = controller.getAverageWaitingTime();
         controller.assignJob("P2");
-        assertEquals(before, controller.getAverageWaitingTime(), 0.000001);
-        assertEquals(5, controller.scheduleJobs().getEntries().size());
+        assertAssignmentPriorityExample(controller.scheduleJobs());
+    }
+
+    // Verifies the same completion times after the controller reloads jobs from the log file.
+    @Test
+    void shouldComputeCompletionTimesFromSavedJobs() throws IOException {
+        writeLog(
+                "2026-10-25 13:00:00|JOB|client|P1|10|11-01-2026|3",
+                "2026-10-25 13:00:00|JOB|client|P2|1|11-01-2026|1",
+                "2026-10-25 13:00:00|JOB|client|P3|2|11-01-2026|4",
+                "2026-10-25 13:00:00|JOB|client|P4|1|11-01-2026|5",
+                "2026-10-25 13:00:00|JOB|client|P5|5|11-01-2026|2");
+        assertAssignmentPriorityExample(controller().scheduleJobs());
     }
 
     // Verifies that timestamped VEHICLE and JOB lines load, including a blank compute field.
@@ -336,6 +348,8 @@ class VehicularCloudControllerTest {
                 "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client-1|job-9|11-01-2026|8|11-10-2026");
         VehicularCloudController controller = controller();
         assertEquals("car-9", controller.getVehicles().get(0).getVehicleId());
+        assertEquals("own-1", controller.getVehicleOwnerId("car-9"));
+        assertEquals("mail@test.edu", controller.getVehicleAccountEmail("car-9"));
         assertEquals("car-8", controller.getVehicles().get(1).getVehicleId());
         assertEquals(7.5, controller.getTotalAvailableCompute(), 0.000001);
 
@@ -344,6 +358,42 @@ class VehicularCloudControllerTest {
         assertEquals("client-1", job.getClientId());
         assertEquals(8, job.getEstimatedDuration());
         assertEquals(1, job.getPriority());
+    }
+
+    // Verifies the timestamped CLIENT line the job form writes, including priority.
+    @Test
+    void shouldLoadTimestampedClientRecordsWithPriority() throws IOException {
+        writeLog(
+                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client-1|job-9|11-01-2026|8|11-10-2026|3");
+        Job job = controller().getJobs().get(0);
+        assertEquals("job-9", job.getJobId());
+        assertEquals("client-1", job.getClientId());
+        assertEquals(8, job.getEstimatedDuration());
+        assertEquals("11-10-2026", job.getDeadline());
+        assertEquals(3, job.getPriority());
+    }
+
+    // Verifies completion times when jobs are reloaded from timestamped CLIENT form lines.
+    @Test
+    void shouldComputeCompletionTimesFromSavedClientJobs() throws IOException {
+        writeLog(
+                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P1|11-01-2026|10|11-20-2026|3",
+                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P2|11-01-2026|1|11-20-2026|1",
+                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P3|11-01-2026|2|11-20-2026|4",
+                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P4|11-01-2026|1|11-20-2026|5",
+                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P5|11-01-2026|5|11-20-2026|2");
+        assertAssignmentPriorityExample(controller().scheduleJobs());
+    }
+
+    // Verifies that the car form can store owner name and account email with a car.
+    @Test
+    void shouldRememberOwnerWhenRegisteringAVehicle() {
+        VehicularCloudController controller = controller();
+        assertTrue(controller.registerVehicle(vehicle("car-1"), 10.0, "own-1", "mail@test.edu"));
+        assertEquals("own-1", controller.getVehicleOwnerId("car-1"));
+        assertEquals("mail@test.edu", controller.getVehicleAccountEmail("car-1"));
+        assertEquals("", controller.getVehicleOwnerId("missing"));
+        assertEquals("", controller.getVehicleAccountEmail("missing"));
     }
 
     // Verifies that ASSIGN is applied after cars and jobs, and DEREGISTER can remove an idle car.
@@ -455,18 +505,40 @@ class VehicularCloudControllerTest {
         assertEquals(0.0, second.getTotalAvailableCompute(), 0.000001);
     }
 
+    // Builds a controller that starts from the test log file.
     private VehicularCloudController controller() {
         return new VehicularCloudController("T-1", "Test Controller");
     }
 
+    // Sample car used by the tests.
     private Vehicle vehicle(String id) {
         return new Vehicle(id, "Toyota", "Camry", 2020, "09:00", "17:00");
     }
 
+    // Sample job used by the tests.
     private Job job(String jobId, int duration, int priority) {
         return new Job("client", jobId, duration, "11-01-2026", priority);
     }
 
+    // Assignment example: P2, P5, P1, P3, P4 with completion times 1, 6, 16, 18, 19.
+    private void assertAssignmentPriorityExample(ScheduleResult result) {
+        assertEquals(5, result.getEntries().size());
+        assertEntry(result.getEntries().get(0), "P2", 0, 1);
+        assertEntry(result.getEntries().get(1), "P5", 1, 6);
+        assertEntry(result.getEntries().get(2), "P1", 6, 16);
+        assertEntry(result.getEntries().get(3), "P3", 16, 18);
+        assertEntry(result.getEntries().get(4), "P4", 18, 19);
+        assertEquals(8.2, result.getAverageWaitingTime(), 0.000001);
+    }
+
+    // Checks one scheduled job's waiting and completion times.
+    private void assertEntry(ScheduleEntry entry, String jobId, int waitingTime, int completionTime) {
+        assertEquals(jobId, entry.getJob().getJobId());
+        assertEquals(waitingTime, entry.getWaitingTime());
+        assertEquals(completionTime, entry.getCompletionTime());
+    }
+
+    // Writes these lines into the test log before a controller is created.
     private void writeLog(String... lines) throws IOException {
         Files.write(LOG, Arrays.asList(lines));
     }

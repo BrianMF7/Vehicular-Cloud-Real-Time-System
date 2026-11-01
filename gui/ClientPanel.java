@@ -86,9 +86,10 @@ public class ClientPanel extends JPanel {
         add(content, BorderLayout.CENTER);
     }
 
+    // Ask the shared controller for completion times so this screen matches the car form.
     private void refreshSchedule() {
         try {
-            ScheduleResult result = new VehicularCloudController().scheduleJobs();
+            ScheduleResult result = VehicularCloudController.getInstance().scheduleJobs();
             tableModel.setRowCount(0);
             for (ScheduleEntry entry : result.getEntries()) {
                 Job job = entry.getJob();
@@ -106,12 +107,22 @@ public class ClientPanel extends JPanel {
         }
     }
 
+    // Validate and save the CLIENT line, then give the same job to the controller.
     private void submitJob() {
+        String clientId = clientIdField.getText();
+        String jobId = jobIdField.getText();
+        String durationText = jobDurationField.getText();
+        String deadline = jobDeadlineField.getText();
+        String priorityText = priorityField.getText();
         ClientSubmit submit = new ClientSubmit(
-                clientIdField.getText(), jobIdField.getText(), jobAvailabilityField.getText(),
-                jobDurationField.getText(), jobDeadlineField.getText(), priorityField.getText());
+                clientId, jobId, jobAvailabilityField.getText(),
+                durationText, deadline, priorityText);
         try {
             submit.submit();
+            Job job = new Job(clientId.trim(), jobId.trim(),
+                    Integer.parseInt(durationText.trim()), deadline.trim(),
+                    Integer.parseInt(priorityText.trim()));
+            VehicularCloudController.getInstance().submitJob(job);
             JOptionPane.showMessageDialog(this, "Job saved.", "Success", JOptionPane.INFORMATION_MESSAGE);
             clearFields();
             refreshSchedule();
