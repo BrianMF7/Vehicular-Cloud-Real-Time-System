@@ -14,6 +14,7 @@ import model.Vehicle;
 import scheduling.PriorityScheduler;
 import scheduling.ScheduleResult;
 import storage.FileManager;
+import storage.RecordParser;
 
 // The cloud controller keeps the list of cars and jobs.
 // It saves records through FileManager and uses PriorityScheduler
@@ -31,7 +32,7 @@ public class VehicularCloudController {
     private final List<Job> jobs;
     // Compute power for each car. The Vehicle class does not store this yet.
     private final Map<String, Double> computeByVehicleId;
-    //Owner name and signed in email for each car.
+    // Owner name and signed-in email for each car.
     private final Map<String, String> ownerByVehicleId;
     private final Map<String, String> emailByVehicleId;
     // True when a car is already working on a job.
@@ -45,6 +46,7 @@ public class VehicularCloudController {
     // When we are reading the log we should not write it again.
     private boolean loading;
 
+    // Shared controller used by the car form, job form, and results screen.
     public static VehicularCloudController getInstance() {
         if (instance == null) {
             instance = new VehicularCloudController();
@@ -52,10 +54,12 @@ public class VehicularCloudController {
         return instance;
     }
 
+    // Default controller used by the application.
     public VehicularCloudController() {
         this("VCC-1", "Vehicular Cloud Controller");
     }
 
+    // Builds a controller with a custom id and name, then loads saved cars and jobs.
     public VehicularCloudController(String controllerID, String name) {
         this.controllerID = controllerID;
         this.name = name;
@@ -74,14 +78,17 @@ public class VehicularCloudController {
         loadSavedData();
     }
 
+    // Id shown in the system status text.
     public String getControllerID() {
         return controllerID;
     }
 
+    // Display name shown in the system status text.
     public String getName() {
         return name;
     }
 
+    // Compute from cars that are not currently assigned a job.
     public double getTotalAvailableCompute() {
         return totalAvailableCompute;
     }
@@ -131,23 +138,23 @@ public class VehicularCloudController {
         return registerVehicle(vehicle, 0);
     }
 
-    // dd a car and remember how much compute it offers.
+    // Add a car and remember how much compute it offers.
     public boolean registerVehicle(Vehicle vehicle, double compute) {
         return registerVehicle(vehicle, compute, "", "");
     }
 
-    //Add a car and remember who registered it.
+    // Add a car and remember who registered it. The car form uses this method.
     public boolean registerVehicle(Vehicle vehicle, double compute, String ownerId, String accountEmail) {
         if (vehicle == null || isBlank(vehicle.getVehicleId())) {
             return false;
-               }
-          if (findVehicle(vehicle.getVehicleId()) != null) {
-            return false;
-         }
-               if (compute < 0) {
+        }
+        if (findVehicle(vehicle.getVehicleId()) != null) {
             return false;
         }
-           String vehicleId = vehicle.getVehicleId();
+        if (compute < 0) {
+            return false;
+        }
+        String vehicleId = vehicle.getVehicleId();
         vehicles.add(vehicle);
         computeByVehicleId.put(vehicleId, Double.valueOf(compute));
         ownerByVehicleId.put(vehicleId, safe(ownerId));
@@ -161,15 +168,17 @@ public class VehicularCloudController {
         return true;
     }
 
+    // Owner id stored with the car, or an empty string if none was saved.
     public String getVehicleOwnerId(String vehicleId) {
         String owner = ownerByVehicleId.get(vehicleId);
-             return owner == null ? "" : owner;
+        return owner == null ? "" : owner;
     }
 
+    // Account email stored with the car, or an empty string if none was saved.
     public String getVehicleAccountEmail(String vehicleId) {
         String email = emailByVehicleId.get(vehicleId);
-           return email == null ? "" : email;
-         }
+        return email == null ? "" : email;
+    }
 
     // Take a car out of the cloud. Busy cars have to be released first.
     public boolean deregisterVehicle(String vehicleID) {
@@ -224,6 +233,7 @@ public class VehicularCloudController {
         saveLine("RELEASE|" + vehicleId);
     }
 
+    // Cars that are not currently assigned a job.
     public List<Vehicle> getAvailableVehicles() {
         List<Vehicle> available = new ArrayList<Vehicle>();
         for (Vehicle vehicle : vehicles) {
@@ -253,10 +263,12 @@ public class VehicularCloudController {
         return true;
     }
 
+    // Copy of the submitted jobs so callers cannot change the real list.
     public List<Job> getJobs() {
         return new ArrayList<Job>(jobs);
     }
 
+    // Copy of the registered cars so callers cannot change the real list.
     public List<Vehicle> getVehicles() {
         return new ArrayList<Vehicle>(vehicles);
     }
@@ -267,19 +279,23 @@ public class VehicularCloudController {
         return lastSchedule;
     }
 
+    // Average waiting time from the latest schedule.
     public double getAverageWaitingTime() {
         refreshSchedule();
         return lastSchedule.getAverageWaitingTime();
     }
 
+    // Car assigned to this job, or null if the job is still waiting.
     public String getAssignedVehicleId(String jobID) {
         return vehicleIdByJobId.get(jobID);
     }
 
+    // Ask the scheduler for a new set of waiting and completion times.
     private void refreshSchedule() {
         lastSchedule = scheduler.schedule(new ArrayList<Job>(jobs));
     }
 
+    // Add up compute from cars that are not busy.
     private void refreshAvailableCompute() {
         double total = 0;
         for (Vehicle vehicle : vehicles) {
@@ -290,6 +306,7 @@ public class VehicularCloudController {
         totalAvailableCompute = total;
     }
 
+    // Find a registered car by id.
     private Vehicle findVehicle(String vehicleId) {
         if (vehicleId == null) {
             return null;
@@ -302,6 +319,7 @@ public class VehicularCloudController {
         return null;
     }
 
+    // Find a submitted job by id.
     private Job findJob(String jobId) {
         if (jobId == null) {
             return null;
@@ -314,11 +332,13 @@ public class VehicularCloudController {
         return null;
     }
 
+    // True when a car is already working on a job.
     private boolean isInUse(String vehicleId) {
         Boolean inUse = inUseByVehicleId.get(vehicleId);
         return inUse != null && inUse.booleanValue();
     }
 
+    // Compute stored for this car, or 0 if none was saved.
     private double getCompute(String vehicleId) {
         Double value = computeByVehicleId.get(vehicleId);
         if (value == null) {
@@ -327,6 +347,7 @@ public class VehicularCloudController {
         return value.doubleValue();
     }
 
+    // Append one record through FileManager unless we are still loading the log.
     private void saveLine(String record) {
         if (loading) {
             return;
@@ -374,6 +395,7 @@ public class VehicularCloudController {
         }
     }
 
+    // Apply one saved line, except ASSIGN which is handled after cars and jobs exist.
     private void loadRecord(String[] parts, String type) {
         if ("OWNER".equals(type) || "VEHICLE".equals(type)) {
             loadVehicle(parts, type);
@@ -385,6 +407,8 @@ public class VehicularCloudController {
             if (vehicle != null && !isInUse(vehicleId)) {
                 vehicles.remove(vehicle);
                 computeByVehicleId.remove(vehicleId);
+                ownerByVehicleId.remove(vehicleId);
+                emailByVehicleId.remove(vehicleId);
                 inUseByVehicleId.remove(vehicleId);
             }
         } else if ("RELEASE".equals(type) && parts.length >= 3) {
@@ -395,6 +419,7 @@ public class VehicularCloudController {
         }
     }
 
+    // Rebuild a car from a VEHICLE or OWNER line, including owner and email when present.
     private void loadVehicle(String[] parts, String type) {
         try {
             String vehicleId;
@@ -453,45 +478,24 @@ public class VehicularCloudController {
         }
     }
 
+    // Rebuild a job from a JOB line or from the timestamped CLIENT line the job form writes.
     private void loadJob(String[] parts, String type) {
         try {
-            String clientId;
-            String jobId;
-            int duration;
-            String deadline;
-            int priority = 1;
-            if ("JOB".equals(type) && parts.length >= 7) {
-                clientId = parts[2];
-                jobId = parts[3];
-                duration = Integer.parseInt(parts[4].trim());
-                deadline = parts[5];
-                priority = Integer.parseInt(parts[6].trim());
-            } else if ("CLIENT".equals(type) && parts.length >= 9) {
-                // Current format: CLIENT|username|email|clientId|jobId|availability|duration|deadline|priority
-                clientId = parts[3];
-                jobId = parts[4];
-                duration = Integer.parseInt(parts[6].trim());
-                deadline = parts[7];
-                priority = Integer.parseInt(parts[8].trim());
-            } else if ("CLIENT".equals(type) && parts.length >= 8) {
-                // Previous format without priority.
-                clientId = parts[3];
-                jobId = parts[4];
-                duration = Integer.parseInt(parts[6].trim());
-                deadline = parts[7];
-            } else if ("CLIENT".equals(type) && parts.length >= 7) {
-                clientId = parts[2];
-                jobId = parts[3];
-                duration = Integer.parseInt(parts[5].trim());
-                deadline = parts[6];
-            } else if ("CLIENT".equals(type) && parts.length >= 6) {
-                clientId = parts[2];
-                jobId = parts[3];
-                duration = Integer.parseInt(parts[4].trim());
-                deadline = parts[5];
-            } else {
+            if ("CLIENT".equals(type)) {
+                Job parsed = RecordParser.parseClientRecord(String.join("|", parts));
+                if (parsed != null && findJob(parsed.getJobId()) == null) {
+                    jobs.add(parsed);
+                }
                 return;
             }
+            if (!"JOB".equals(type) || parts.length < 7) {
+                return;
+            }
+            String clientId = parts[2];
+            String jobId = parts[3];
+            int duration = Integer.parseInt(parts[4].trim());
+            String deadline = parts[5];
+            int priority = Integer.parseInt(parts[6].trim());
             if (isBlank(jobId) || findJob(jobId) != null || duration <= 0 || priority <= 0) {
                 return;
             }
@@ -501,6 +505,7 @@ public class VehicularCloudController {
         }
     }
 
+    // Mark a car busy after its job has been loaded.
     private void loadAssign(String[] parts) {
         if (parts.length < 4) {
             return;
@@ -517,6 +522,7 @@ public class VehicularCloudController {
         inUseByVehicleId.put(vehicleId, Boolean.TRUE);
     }
 
+    // Record kind from a timestamped line (second field) or an older line (first field).
     private static String recordType(String[] parts) {
         if (parts.length >= 2 && isKnownType(parts[1])) {
             return parts[1];
@@ -527,12 +533,14 @@ public class VehicularCloudController {
         return "";
     }
 
+    // True for the record kinds this controller knows how to load.
     private static boolean isKnownType(String value) {
         return "OWNER".equals(value) || "CLIENT".equals(value) || "VEHICLE".equals(value)
                 || "JOB".equals(value) || "ASSIGN".equals(value) || "RELEASE".equals(value)
                 || "DEREGISTER".equals(value);
     }
 
+    // Parse compute from a saved field. Blank values are treated as 0.
     private static double parseCompute(String text) {
         if (text == null || text.trim().isEmpty()) {
             return 0;
@@ -540,10 +548,12 @@ public class VehicularCloudController {
         return Double.parseDouble(text.trim());
     }
 
+    // True when the text is missing or only spaces.
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
 
+    // Trim saved text, or use an empty string when the value is missing.
     private static String safe(String value) {
         return value == null ? "" : value.trim();
     }
