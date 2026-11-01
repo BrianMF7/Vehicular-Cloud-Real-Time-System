@@ -20,7 +20,8 @@ import javax.swing.JTextField;
 import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
 
-import storage.FileManager;
+import controller.VehicularCloudController;
+import model.Vehicle;
 
 public class OwnerPanel extends JPanel {
     //How we read and write dates
@@ -129,20 +130,43 @@ public class OwnerPanel extends JPanel {
                if (!departureTime.isAfter(arrivalTime) || !departureTime.isAfter(LocalDateTime.now())) {
                 throw new IllegalArgumentException("Departure must be after arrival and in the future.");
                }
+            int yearValue = Integer.parseInt(carYear);
+            if (yearValue < 1995 || yearValue > 2027) {
+                showError("Year must be between 1995 and 2027.");
+                return;
+            }
+            double power = Double.parseDouble(powerText);
+            if (!Double.isFinite(power) || power <= 0) {
+                showError("Compute power must be a positive number.");
+                return;
+            }
+            if (containsBreak(owner) || containsBreak(carMake) || containsBreak(carModel)
+                    || containsBreak(arrivalText) || containsBreak(departureText)) {
+                showError("Vehicle fields cannot contain | or line breaks.");
+                return;
+            }
             //Makes a random id for this car
-                String vehicleId = UUID.randomUUID().toString();
-            SubmitStrategy submission = new OwnerSubmit(owner, vehicleId, carMake, carModel,
-                    carYear, arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT), powerText);
-             submission.submit();
+            String vehicleId = UUID.randomUUID().toString();
+            Vehicle vehicle = new Vehicle(vehicleId, carMake, carModel, yearValue,
+                    arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT));
+            String accountEmail = MainFrame.getCurrentEmail();
+            boolean saved = VehicularCloudController.getInstance()
+                    .registerVehicle(vehicle, power, owner, accountEmail);
+            if (!saved) {
+                showError("Could not register this car.");
+                return;
+            }
             refreshVehicles();
-              JOptionPane.showMessageDialog(this, "Car registered. Vehicle ID: " + vehicleId);
+            JOptionPane.showMessageDialog(this, "Car registered. Vehicle ID: " + vehicleId);
             clearFields();
         } catch (DateTimeParseException ex) {
             showError("Use MM-dd-yyyy HH:mm for arrival and departure, for example 10-01-2026 09:30.");
-          } catch (Exception ex) {
-               showError(ex.getMessage());
+        } catch (NumberFormatException ex) {
+            showError("Year and compute power must be numbers.");
+        } catch (IllegalArgumentException ex) {
+            showError(ex.getMessage());
         }
-        }
+    }
 
     private void clearFields() {
         ownerId.setText("");
@@ -155,24 +179,48 @@ public class OwnerPanel extends JPanel {
        }
 
     private void refreshVehicles() {
-        try {
-            List<FileManager.VehicleEntry> vehicles = FileManager.getInstance().readVehicles();
-            LocalDateTime now = LocalDateTime.now();
-            String currentEmail = MainFrame.getCurrentEmail();
-            int visibleCount = 0;
-            vehicleRows.setRowCount(0);
-            for (int i = vehicles.size() - 1; i >= 0; i--) {
-                FileManager.VehicleEntry vehicle = vehicles.get(i);
-                if (!currentEmail.isEmpty() && !vehicle.belongsToAccount(currentEmail)) {
-                    continue;
-                }
-                vehicleRows.addRow(new Object[] {vehicle.getVehicleId(), vehicle.getOwnerId(),
-                        vehicle.getCarModel(), vehicle.getStatusAt(now)});
-                visibleCount++;
+        VehicularCloudController controller = VehicularCloudController.getInstance();
+        List<Vehicle> vehicles = controller.getVehicles();
+        String currentEmail = MainFrame.getCurrentEmail();
+        LocalDateTime now = LocalDateTime.now();
+        int visibleCount = 0;
+        vehicleRows.setRowCount(0);
+        for (int i = vehicles.size() - 1; i >= 0; i--) {
+            Vehicle vehicle = vehicles.get(i);
+            String savedEmail = controller.getVehicleAccountEmail(vehicle.getVehicleId());
+            if (!currentEmail.isEmpty() && !currentEmail.equalsIgnoreCase(savedEmail)) {
+                continue;
             }
-            tableMessage.setText(visibleCount + " vehicle(s). Status reflects arrival/departure times.");
-        } catch (Exception ex) {
-            tableMessage.setText("Could not refresh vehicles: " + ex.getMessage());
+            String carModel = vehicle.getMake() + " " + vehicle.getModel() + " (" + vehicle.getYear() + ")";
+            vehicleRows.addRow(new Object[] {vehicle.getVehicleId(),
+                    controller.getVehicleOwnerId(vehicle.getVehicleId()),
+                    carModel, statusAt(vehicle, now)});
+            visibleCount++;
+        }
+        tableMessage.setText(visibleCount + " vehicle(s). Status reflects arrival/departure times.");
+    }
+
+    private boolean containsBreak(String value) {
+        return value.contains("|") || value.contains("\n") || value.contains("\r");
+    }
+
+    //Same status labels the table used before, read from the controller's vehicle
+    private String statusAt(Vehicle vehicle, LocalDateTime now) {
+        try {
+            LocalDateTime arrivalTime = LocalDateTime.parse(vehicle.getArrivalTime(), TIME_FORMAT);
+            LocalDateTime departureTime = LocalDateTime.parse(vehicle.getDepartureTime(), TIME_FORMAT);
+            if (!departureTime.isAfter(arrivalTime)) {
+                return "Unknown";
+            }
+            if (now.isBefore(arrivalTime)) {
+                return "Registered";
+            }
+            if (now.isBefore(departureTime)) {
+                return "Available";
+            }
+            return "Unavailable";
+        } catch (DateTimeParseException ex) {
+            return "Unknown";
         }
     }
 
