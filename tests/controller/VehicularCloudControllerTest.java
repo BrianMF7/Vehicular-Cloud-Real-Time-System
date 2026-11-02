@@ -42,7 +42,7 @@ class VehicularCloudControllerTest {
         }
     }
 
-    // Start each test with an empty log so leftover records cannot leak in.
+    // Start each test with an empty log so records from another test cannot leak in.
     @BeforeEach
     void deleteTestLog() throws IOException {
         Files.deleteIfExists(LOG);
@@ -312,11 +312,11 @@ class VehicularCloudControllerTest {
     @Test
     void shouldComputeCompletionTimesFromSavedJobs() throws IOException {
         writeLog(
-                "2026-10-25 13:00:00|JOB|client|P1|10|11-01-2026|3",
-                "2026-10-25 13:00:00|JOB|client|P2|1|11-01-2026|1",
-                "2026-10-25 13:00:00|JOB|client|P3|2|11-01-2026|4",
-                "2026-10-25 13:00:00|JOB|client|P4|1|11-01-2026|5",
-                "2026-10-25 13:00:00|JOB|client|P5|5|11-01-2026|2");
+                jobLine("P1", 10, 3),
+                jobLine("P2", 1, 1),
+                jobLine("P3", 2, 4),
+                jobLine("P4", 1, 5),
+                jobLine("P5", 5, 2));
         assertAssignmentPriorityExample(controller().scheduleJobs());
     }
 
@@ -326,7 +326,7 @@ class VehicularCloudControllerTest {
         writeLog(
                 "2026-10-25 13:00:00|VEHICLE|car-1|Toyota|Camry|2020|09:00|17:00|10.0",
                 "2026-10-25 13:00:00|VEHICLE|car-z|Toyota|Camry|2020|09:00|17:00|",
-                "2026-10-25 13:00:00|JOB|client|job-1|5|11-01-2026|2");
+                jobLine("job-1", 5, 2));
         VehicularCloudController controller = controller();
         assertEquals(2, controller.getVehicles().size());
         assertEquals("car-1", controller.getVehicles().get(0).getVehicleId());
@@ -337,52 +337,39 @@ class VehicularCloudControllerTest {
         assertEquals("client", job.getClientId());
         assertEquals(5, job.getEstimatedDuration());
         assertEquals(2, job.getPriority());
+        assertEquals("", job.getAvailability());
     }
 
-    // Verifies that OWNER and CLIENT lines from the GUI also load.
+    // Verifies that the current JOB line stores username, email, and availability.
     @Test
-    void shouldLoadOwnerAndClientRecords() throws IOException {
+    void shouldLoadJobRecordsWithAccountAndAvailability() throws IOException {
+        writeLog(
+                "2026-10-25 13:00:00|JOB|user|mail@test.edu|client|job-1|11-01-2026|5|11-10-2026|2");
+        VehicularCloudController controller = controller();
+        Job job = controller.getJobs().get(0);
+        assertEquals("job-1", job.getJobId());
+        assertEquals("client", job.getClientId());
+        assertEquals("11-01-2026", job.getAvailability());
+        assertEquals(5, job.getEstimatedDuration());
+        assertEquals("11-10-2026", job.getDeadline());
+        assertEquals(2, job.getPriority());
+        assertEquals("user", controller.getJobAccountName("job-1"));
+        assertEquals("mail@test.edu", controller.getJobAccountEmail("job-1"));
+    }
+
+    // Verifies that OWNER lines load, including owner id and account email.
+    @Test
+    void shouldLoadOwnerRecords() throws IOException {
         writeLog(
                 "2026-10-25 13:00:00|OWNER|user|mail@test.edu|own-1|car-9|Ford|Focus|2018|08:00|18:00|4.5",
-                "OWNER|x|y|car-8|Honda|Civic|2019|07:00|16:00|3.0",
-                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client-1|job-9|11-01-2026|8|11-10-2026");
+                "OWNER|x|y|car-8|Honda|Civic|2019|07:00|16:00|3.0");
         VehicularCloudController controller = controller();
         assertEquals("car-9", controller.getVehicles().get(0).getVehicleId());
         assertEquals("own-1", controller.getVehicleOwnerId("car-9"));
         assertEquals("mail@test.edu", controller.getVehicleAccountEmail("car-9"));
         assertEquals("car-8", controller.getVehicles().get(1).getVehicleId());
         assertEquals(7.5, controller.getTotalAvailableCompute(), 0.000001);
-
-        Job job = controller.getJobs().get(0);
-        assertEquals("job-9", job.getJobId());
-        assertEquals("client-1", job.getClientId());
-        assertEquals(8, job.getEstimatedDuration());
-        assertEquals(1, job.getPriority());
-    }
-
-    // Verifies the timestamped CLIENT line the job form writes, including priority.
-    @Test
-    void shouldLoadTimestampedClientRecordsWithPriority() throws IOException {
-        writeLog(
-                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client-1|job-9|11-01-2026|8|11-10-2026|3");
-        Job job = controller().getJobs().get(0);
-        assertEquals("job-9", job.getJobId());
-        assertEquals("client-1", job.getClientId());
-        assertEquals(8, job.getEstimatedDuration());
-        assertEquals("11-10-2026", job.getDeadline());
-        assertEquals(3, job.getPriority());
-    }
-
-    // Verifies completion times when jobs are reloaded from timestamped CLIENT form lines.
-    @Test
-    void shouldComputeCompletionTimesFromSavedClientJobs() throws IOException {
-        writeLog(
-                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P1|11-01-2026|10|11-20-2026|3",
-                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P2|11-01-2026|1|11-20-2026|1",
-                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P3|11-01-2026|2|11-20-2026|4",
-                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P4|11-01-2026|1|11-20-2026|5",
-                "2026-10-25 13:00:00|CLIENT|user|mail@test.edu|client|P5|11-01-2026|5|11-20-2026|2");
-        assertAssignmentPriorityExample(controller().scheduleJobs());
+        assertEquals(0, controller.getJobs().size());
     }
 
     // Verifies that the car form can store owner name and account email with a car.
@@ -403,7 +390,7 @@ class VehicularCloudControllerTest {
                 "2026-10-25 13:00:00|ASSIGN|job-1|car-1",
                 "2026-10-25 13:00:00|VEHICLE|car-1|Toyota|Camry|2020|09:00|17:00|10.0",
                 "2026-10-25 13:00:00|VEHICLE|car-2|Ford|Focus|2018|08:00|18:00|4.0",
-                "2026-10-25 13:00:00|JOB|client|job-1|5|11-01-2026|1",
+                jobLine("job-1", 5, 1),
                 "2026-10-25 13:00:00|DEREGISTER|car-2");
         VehicularCloudController controller = controller();
         assertEquals("car-1", controller.getAssignedVehicleId("job-1"));
@@ -424,17 +411,17 @@ class VehicularCloudControllerTest {
                 "2026-10-25 13:00:00|JOB|client|job-1",
                 "2026-10-25 13:00:00|VEHICLE|car-bad|Toyota|Camry|year|09:00|17:00|10.0",
                 "2026-10-25 13:00:00|VEHICLE|car-bad2|Toyota|Camry|2020|09:00|17:00|nope",
-                "2026-10-25 13:00:00|JOB|client|job-bad|long|11-01-2026|1",
-                "2026-10-25 13:00:00|JOB|client|job-bad2|5|11-01-2026|high",
+                "2026-10-25 13:00:00|JOB|||client|job-bad||long|11-01-2026|1",
+                "2026-10-25 13:00:00|JOB|||client|job-bad2||5|11-01-2026|high",
                 "2026-10-25 13:00:00|VEHICLE||Toyota|Camry|2020|09:00|17:00|10.0",
-                "2026-10-25 13:00:00|JOB|client||5|11-01-2026|1",
-                "2026-10-25 13:00:00|JOB|client|job-zero|0|11-01-2026|1",
-                "2026-10-25 13:00:00|JOB|client|job-neg|-2|11-01-2026|1",
-                "2026-10-25 13:00:00|JOB|client|job-pri|5|11-01-2026|0",
+                "2026-10-25 13:00:00|JOB|||client|||5|11-01-2026|1",
+                jobLine("job-zero", 0, 1),
+                "2026-10-25 13:00:00|JOB|||client|job-neg||-2|11-01-2026|1",
+                jobLine("job-pri", 5, 0),
                 "2026-10-25 13:00:00|VEHICLE|car-1|Toyota|Camry|2020|09:00|17:00|10.0",
                 "2026-10-25 13:00:00|VEHICLE|car-1|Ford|Focus|2018|08:00|18:00|4.0",
-                "2026-10-25 13:00:00|JOB|client|job-1|5|11-01-2026|1",
-                "2026-10-25 13:00:00|JOB|other|job-1|9|11-02-2026|3",
+                jobLine("job-1", 5, 1),
+                "2026-10-25 13:00:00|JOB|||other|job-1||9|11-02-2026|3",
                 "2026-10-25 13:00:00|ASSIGN",
                 "2026-10-25 13:00:00|RELEASE",
                 "2026-10-25 13:00:00|DEREGISTER");
@@ -452,8 +439,8 @@ class VehicularCloudControllerTest {
         writeLog(
                 "2026-10-25 13:00:00|VEHICLE|car-1|Toyota|Camry|2020|09:00|17:00|10.0",
                 "2026-10-25 13:00:00|VEHICLE|car-2|Ford|Focus|2018|08:00|18:00|8.0",
-                "2026-10-25 13:00:00|JOB|client|job-1|5|11-01-2026|1",
-                "2026-10-25 13:00:00|JOB|client|job-2|3|11-01-2026|2",
+                jobLine("job-1", 5, 1),
+                jobLine("job-2", 3, 2),
                 "2026-10-25 13:00:00|ASSIGN|job-1|car-missing",
                 "2026-10-25 13:00:00|ASSIGN|job-missing|car-1",
                 "2026-10-25 13:00:00|ASSIGN|job-1|car-1",
@@ -470,7 +457,7 @@ class VehicularCloudControllerTest {
     void shouldFollowReleaseAndDeregisterOrderWhenLoading() throws IOException {
         writeLog(
                 "2026-10-25 13:00:00|VEHICLE|car-1|Toyota|Camry|2020|09:00|17:00|10.0",
-                "2026-10-25 13:00:00|JOB|client|job-1|5|11-01-2026|1",
+                jobLine("job-1", 5, 1),
                 "2026-10-25 13:00:00|ASSIGN|job-1|car-1",
                 "2026-10-25 13:00:00|RELEASE|car-1");
         VehicularCloudController released = controller();
@@ -479,12 +466,47 @@ class VehicularCloudControllerTest {
 
         writeLog(
                 "2026-10-25 13:00:00|VEHICLE|car-1|Toyota|Camry|2020|09:00|17:00|10.0",
-                "2026-10-25 13:00:00|JOB|client|job-1|5|11-01-2026|1",
+                jobLine("job-1", 5, 1),
                 "2026-10-25 13:00:00|ASSIGN|job-1|car-1",
                 "2026-10-25 13:00:00|DEREGISTER|car-1");
         VehicularCloudController removed = controller();
         assertEquals(0, removed.getVehicles().size());
         assertNull(removed.getAssignedVehicleId("job-1"));
+    }
+
+    // Verifies that submitting a job writes one JOB line with account and availability.
+    @Test
+    void shouldSaveAJobRecord() throws IOException {
+        VehicularCloudController controller = controller();
+        Job submitted = new Job("client", "job-1", 5, "11-10-2026", 1, "11-01-2026");
+        assertTrue(controller.submitJob(submitted, "user", "mail@test.edu"));
+
+        List<String> lines = Files.readAllLines(LOG);
+        assertEquals(1, lines.size());
+        assertTrue(lines.get(0).contains("|JOB|user|mail@test.edu|client|job-1|11-01-2026|5|11-10-2026|1"));
+        assertEquals("11-01-2026", controller.getJobs().get(0).getAvailability());
+        assertEquals("user", controller.getJobAccountName("job-1"));
+        assertEquals("mail@test.edu", controller.getJobAccountEmail("job-1"));
+    }
+
+    // Verifies the form save path: ClientSubmit talks to the controller and writes one JOB line.
+    @Test
+    void shouldLetClientSubmitSaveThroughTheControllerOnly() throws Exception {
+        VehicularCloudController controller = controller();
+        gui.ClientSubmit submit = new gui.ClientSubmit(
+                "client-1", "form-job", "12-01-2026", "2", "12-10-2026", "3");
+        submit.submit(controller);
+
+        List<String> lines = Files.readAllLines(LOG);
+        assertEquals(1, lines.size());
+        assertTrue(lines.get(0).contains("|JOB|||client-1|form-job|12-01-2026|2|12-10-2026|3"));
+        assertEquals("12-01-2026", controller.getJobs().get(0).getAvailability());
+        assertEquals(3, controller.getJobs().get(0).getPriority());
+
+        VehicularCloudController reloaded = controller();
+        assertEquals("12-01-2026", reloaded.getJobs().get(0).getAvailability());
+        assertEquals(3, reloaded.getJobs().get(0).getPriority());
+        assertEquals("form-job", reloaded.getJobs().get(0).getJobId());
     }
 
     // Verifies that a second controller can read cars, jobs, and the assignment the first one saved.
@@ -518,6 +540,11 @@ class VehicularCloudControllerTest {
     // Sample job used by the tests.
     private Job job(String jobId, int duration, int priority) {
         return new Job("client", jobId, duration, "11-01-2026", priority);
+    }
+
+    // JOB log line matching the format the controller writes.
+    private String jobLine(String jobId, int duration, int priority) {
+        return "2026-10-25 13:00:00|JOB|||client|" + jobId + "||" + duration + "|11-01-2026|" + priority;
     }
 
     // Assignment example: P2, P5, P1, P3, P4 with completion times 1, 6, 16, 18, 19.

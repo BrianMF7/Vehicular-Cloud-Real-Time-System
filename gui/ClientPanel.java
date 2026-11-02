@@ -107,22 +107,13 @@ public class ClientPanel extends JPanel {
         }
     }
 
-    // Validate and save the CLIENT line, then give the same job to the controller.
+    // Validate the form, then let the controller save and schedule the job.
     private void submitJob() {
-        String clientId = clientIdField.getText();
-        String jobId = jobIdField.getText();
-        String durationText = jobDurationField.getText();
-        String deadline = jobDeadlineField.getText();
-        String priorityText = priorityField.getText();
         ClientSubmit submit = new ClientSubmit(
-                clientId, jobId, jobAvailabilityField.getText(),
-                durationText, deadline, priorityText);
+                clientIdField.getText(), jobIdField.getText(), jobAvailabilityField.getText(),
+                jobDurationField.getText(), jobDeadlineField.getText(), priorityField.getText());
         try {
             submit.submit();
-            Job job = new Job(clientId.trim(), jobId.trim(),
-                    Integer.parseInt(durationText.trim()), deadline.trim(),
-                    Integer.parseInt(priorityText.trim()));
-            VehicularCloudController.getInstance().submitJob(job);
             JOptionPane.showMessageDialog(this, "Job saved.", "Success", JOptionPane.INFORMATION_MESSAGE);
             clearFields();
             refreshSchedule();

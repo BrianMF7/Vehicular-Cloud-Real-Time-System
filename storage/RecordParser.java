@@ -2,65 +2,40 @@ package storage;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.format.ResolverStyle;
 
 import model.Job;
 import model.Vehicle;
 
 // Changes saved log lines into Job and Vehicle objects.
 public class RecordParser {
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter
-            .ofPattern("MM-dd-uuuu")
-            .withResolverStyle(ResolverStyle.STRICT);
 
-    // Parse a CLIENT line from either the current GUI format or an older format.
-    public static Job parseClientRecord(String recordLine) {
-        if (recordLine == null || !recordLine.contains("CLIENT|")) {
+    // Parse a JOB line:
+    // timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority
+    public static Job parseJobRecord(String recordLine) {
+        if (recordLine == null || !recordLine.contains("JOB|")) {
             return null;
         }
 
         try {
             String[] parts = recordLine.split("\\|", -1);
-            int clientIndex = findRecordType(parts, "CLIENT");
-            if (clientIndex == -1) {
+            int jobIndex = findRecordType(parts, "JOB");
+            if (jobIndex < 0) {
                 return null;
             }
-            int dataIndex = clientIndex + 1;
-
-            // Current GUI format:
-            // timestamp|CLIENT|username|email|clientID|jobID|availability|duration|deadline|priority
-            boolean hasCurrentFormat = parts.length == dataIndex + 7
-                    || parts.length == dataIndex + 8;
-            if (hasCurrentFormat) {
-                String clientId = parts[dataIndex + 2].trim();
-                String jobId = parts[dataIndex + 3].trim();
-                String availability = parts[dataIndex + 4].trim();
-                int duration = Integer.parseInt(parts[dataIndex + 5].trim());
-                String deadline = parts[dataIndex + 6].trim();
-                int priority = parts.length > dataIndex + 7
-                        ? Integer.parseInt(parts[dataIndex + 7].trim())
-                        : 1;
-                if (isBlank(clientId) || isBlank(jobId) || !isValidSchedule(availability, deadline)
-                        || duration <= 0 || priority <= 0) {
-                    return null;
-                }
-                return new Job(clientId, jobId, duration, deadline, priority);
+            int dataIndex = jobIndex + 1;
+            if (parts.length != dataIndex + 8) {
+                return null;
             }
-
-            // Older format: CLIENT|clientID|jobID|duration|deadline
-            if (parts.length == dataIndex + 4) {
-                String clientId = parts[dataIndex].trim();
-                String jobId = parts[dataIndex + 1].trim();
-                int duration = Integer.parseInt(parts[dataIndex + 2].trim());
-                String deadline = parts[dataIndex + 3].trim();
-                if (isBlank(clientId) || isBlank(jobId) || !isValidDate(deadline) || duration <= 0) {
-                    return null;
-                }
-                return new Job(clientId, jobId, duration, deadline);
+            String clientId = parts[dataIndex + 2].trim();
+            String jobId = parts[dataIndex + 3].trim();
+            String availability = parts[dataIndex + 4].trim();
+            int duration = Integer.parseInt(parts[dataIndex + 5].trim());
+            String deadline = parts[dataIndex + 6].trim();
+            int priority = Integer.parseInt(parts[dataIndex + 7].trim());
+            if (isBlank(jobId) || duration <= 0 || priority <= 0) {
+                return null;
             }
+            return new Job(clientId, jobId, duration, deadline, priority, availability);
         } catch (Exception ex) {
             // A bad saved record is ignored so the rest of the log can still load.
         }
@@ -110,8 +85,8 @@ public class RecordParser {
         }
 
         try {
-            for (String record : fileManager.loadClientRecords()) {
-                Job job = parseClientRecord(record);
+            for (String record : fileManager.loadJobRecords()) {
+                Job job = parseJobRecord(record);
                 if (job != null) {
                     jobs.add(job);
                 }
@@ -154,28 +129,6 @@ public class RecordParser {
             }
         }
         return -1;
-    }
-
-    // Checks dates before creating a job from a saved record.
-    private static boolean isValidSchedule(String availability, String deadline) {
-        if (!isValidDate(availability) || !isValidDate(deadline)) {
-            return false;
-        }
-        LocalDate availabilityDate = LocalDate.parse(availability, DATE_FORMAT);
-        LocalDate deadlineDate = LocalDate.parse(deadline, DATE_FORMAT);
-        return deadlineDate.isAfter(availabilityDate);
-    }
-
-    private static boolean isValidDate(String value) {
-        if (isBlank(value)) {
-            return false;
-        }
-        try {
-            LocalDate.parse(value, DATE_FORMAT);
-            return true;
-        } catch (DateTimeParseException ex) {
-            return false;
-        }
     }
 
     private static boolean isBlank(String value) {

@@ -39,6 +39,9 @@ public class VehicularCloudController {
     private final Map<String, Boolean> inUseByVehicleId;
     // Which car is doing which job.
     private final Map<String, String> vehicleIdByJobId;
+    // Signed-in name and email stored with each job, like owner info on cars.
+    private final Map<String, String> usernameByJobId;
+    private final Map<String, String> emailByJobId;
 
     private final FileManager fileManager;
     private final PriorityScheduler scheduler;
@@ -71,6 +74,8 @@ public class VehicularCloudController {
         this.emailByVehicleId = new HashMap<String, String>();
         this.inUseByVehicleId = new HashMap<String, Boolean>();
         this.vehicleIdByJobId = new HashMap<String, String>();
+        this.usernameByJobId = new HashMap<String, String>();
+        this.emailByJobId = new HashMap<String, String>();
         this.fileManager = FileManager.getInstance();
         this.scheduler = new PriorityScheduler();
         this.lastSchedule = scheduler.schedule(new ArrayList<Job>());
@@ -106,11 +111,13 @@ public class VehicularCloudController {
         if (vehicle == null) {
             return false;
         }
+        if (!saveLine("ASSIGN|" + jobID + "|" + vehicle.getVehicleId())) {
+            return false;
+        }
         vehicleIdByJobId.put(jobID, vehicle.getVehicleId());
         inUseByVehicleId.put(vehicle.getVehicleId(), Boolean.TRUE);
         refreshAvailableCompute();
         refreshSchedule();
-        saveLine("ASSIGN|" + jobID + "|" + vehicle.getVehicleId());
         return true;
     }
 
@@ -155,16 +162,18 @@ public class VehicularCloudController {
             return false;
         }
         String vehicleId = vehicle.getVehicleId();
+        if (!saveLine("VEHICLE|" + vehicleId + "|" + safe(vehicle.getMake())
+                + "|" + safe(vehicle.getModel()) + "|" + vehicle.getYear()
+                + "|" + safe(vehicle.getArrivalTime()) + "|" + safe(vehicle.getDepartureTime())
+                + "|" + compute + "|" + safe(ownerId) + "|" + safe(accountEmail))) {
+            return false;
+        }
         vehicles.add(vehicle);
         computeByVehicleId.put(vehicleId, Double.valueOf(compute));
         ownerByVehicleId.put(vehicleId, safe(ownerId));
         emailByVehicleId.put(vehicleId, safe(accountEmail));
         inUseByVehicleId.put(vehicleId, Boolean.FALSE);
         refreshAvailableCompute();
-        saveLine("VEHICLE|" + vehicleId + "|" + safe(vehicle.getMake())
-                + "|" + safe(vehicle.getModel()) + "|" + vehicle.getYear()
-                + "|" + safe(vehicle.getArrivalTime()) + "|" + safe(vehicle.getDepartureTime())
-                + "|" + compute + "|" + safe(ownerId) + "|" + safe(accountEmail));
         return true;
     }
 
@@ -189,13 +198,15 @@ public class VehicularCloudController {
         if (isInUse(vehicleID)) {
             return false;
         }
+        if (!saveLine("DEREGISTER|" + vehicleID)) {
+            return false;
+        }
         vehicles.remove(vehicle);
         computeByVehicleId.remove(vehicleID);
         ownerByVehicleId.remove(vehicleID);
         emailByVehicleId.remove(vehicleID);
         inUseByVehicleId.remove(vehicleID);
         refreshAvailableCompute();
-        saveLine("DEREGISTER|" + vehicleID);
         return true;
     }
 
@@ -246,6 +257,11 @@ public class VehicularCloudController {
 
     // Put a new job in the list so it can be assigned later.
     public boolean submitJob(Job job) {
+        return submitJob(job, "", "");
+    }
+
+    // Save the job once, including the signed-in account. Returns false if the log write fails.
+    public boolean submitJob(Job job, String username, String email) {
         if (job == null || isBlank(job.getJobId())) {
             return false;
         }
@@ -255,12 +271,30 @@ public class VehicularCloudController {
         if (job.getEstimatedDuration() <= 0) {
             return false;
         }
+        String jobId = job.getJobId();
+        if (!saveLine("JOB|" + safe(username) + "|" + safe(email)
+                + "|" + safe(job.getClientId()) + "|" + jobId
+                + "|" + safe(job.getAvailability()) + "|" + job.getEstimatedDuration()
+                + "|" + safe(job.getDeadline()) + "|" + job.getPriority())) {
+            return false;
+        }
         jobs.add(job);
+        usernameByJobId.put(jobId, safe(username));
+        emailByJobId.put(jobId, safe(email));
         refreshSchedule();
-        saveLine("JOB|" + safe(job.getClientId()) + "|" + job.getJobId()
-                + "|" + job.getEstimatedDuration() + "|" + safe(job.getDeadline())
-                + "|" + job.getPriority());
         return true;
+    }
+
+    // Signed-in name stored with the job, or an empty string if none was saved.
+    public String getJobAccountName(String jobId) {
+        String username = usernameByJobId.get(jobId);
+        return username == null ? "" : username;
+    }
+
+    // Signed-in email stored with the job, or an empty string if none was saved.
+    public String getJobAccountEmail(String jobId) {
+        String email = emailByJobId.get(jobId);
+        return email == null ? "" : email;
     }
 
     // Copy of the submitted jobs so callers cannot change the real list.
@@ -348,14 +382,17 @@ public class VehicularCloudController {
     }
 
     // Append one record through FileManager unless we are still loading the log.
-    private void saveLine(String record) {
+    // Returns false when the file write fails so callers do not pretend it saved.
+    private boolean saveLine(String record) {
         if (loading) {
-            return;
+            return true;
         }
         try {
             fileManager.saveRecord(record);
+            return true;
         } catch (Exception ex) {
             System.err.println("Could not save: " + ex.getMessage());
+            return false;
         }
     }
 
@@ -399,8 +436,8 @@ public class VehicularCloudController {
     private void loadRecord(String[] parts, String type) {
         if ("OWNER".equals(type) || "VEHICLE".equals(type)) {
             loadVehicle(parts, type);
-        } else if ("CLIENT".equals(type) || "JOB".equals(type)) {
-            loadJob(parts, type);
+        } else if ("JOB".equals(type)) {
+            loadJob(parts);
         } else if ("DEREGISTER".equals(type) && parts.length >= 3) {
             String vehicleId = parts[parts.length - 1];
             Vehicle vehicle = findVehicle(vehicleId);
@@ -478,31 +515,40 @@ public class VehicularCloudController {
         }
     }
 
-    // Rebuild a job from a JOB line or from the timestamped CLIENT line the job form writes.
-    private void loadJob(String[] parts, String type) {
-        try {
-            if ("CLIENT".equals(type)) {
-                Job parsed = RecordParser.parseClientRecord(String.join("|", parts));
-                if (parsed != null && findJob(parsed.getJobId()) == null) {
-                    jobs.add(parsed);
-                }
-                return;
-            }
-            if (!"JOB".equals(type) || parts.length < 7) {
-                return;
-            }
-            String clientId = parts[2];
-            String jobId = parts[3];
-            int duration = Integer.parseInt(parts[4].trim());
-            String deadline = parts[5];
-            int priority = Integer.parseInt(parts[6].trim());
-            if (isBlank(jobId) || findJob(jobId) != null || duration <= 0 || priority <= 0) {
-                return;
-            }
-            jobs.add(new Job(clientId, jobId, duration, deadline, priority));
-        } catch (NumberFormatException ex) {
-            // Skip a line that does not have a real duration.
+    // Rebuild a job from a JOB line.
+    private void loadJob(String[] parts) {
+        Job parsed = RecordParser.parseJobRecord(String.join("|", parts));
+        if (parsed == null || findJob(parsed.getJobId()) != null) {
+            return;
         }
+        rememberJob(parsed, jobField(parts, 0), jobField(parts, 1));
+    }
+
+    // Keep the job and the account that submitted it.
+    private void rememberJob(Job job, String username, String email) {
+        jobs.add(job);
+        usernameByJobId.put(job.getJobId(), safe(username));
+        emailByJobId.put(job.getJobId(), safe(email));
+    }
+
+    // Field after JOB: 0 is username, 1 is email.
+    private static String jobField(String[] parts, int offset) {
+        int jobIndex = indexOfType(parts, "JOB");
+        int index = jobIndex + 1 + offset;
+        if (jobIndex < 0 || index >= parts.length) {
+            return "";
+        }
+        return parts[index];
+    }
+
+    // Index of a record kind in a split log line.
+    private static int indexOfType(String[] parts, String type) {
+        for (int i = 0; i < parts.length; i++) {
+            if (type.equals(parts[i])) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // Mark a car busy after its job has been loaded.
@@ -522,7 +568,7 @@ public class VehicularCloudController {
         inUseByVehicleId.put(vehicleId, Boolean.TRUE);
     }
 
-    // Record kind from a timestamped line (second field) or an older line (first field).
+    // Record kind from a timestamped line (second field) or a line that starts with the kind.
     private static String recordType(String[] parts) {
         if (parts.length >= 2 && isKnownType(parts[1])) {
             return parts[1];
@@ -535,7 +581,7 @@ public class VehicularCloudController {
 
     // True for the record kinds this controller knows how to load.
     private static boolean isKnownType(String value) {
-        return "OWNER".equals(value) || "CLIENT".equals(value) || "VEHICLE".equals(value)
+        return "OWNER".equals(value) || "VEHICLE".equals(value)
                 || "JOB".equals(value) || "ASSIGN".equals(value) || "RELEASE".equals(value)
                 || "DEREGISTER".equals(value);
     }

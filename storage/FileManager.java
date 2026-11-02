@@ -102,7 +102,7 @@ public class FileManager implements RecordWriter {
         return ownerRecords;
           }
 
-    /** Vehicle rows for the owner's table, including older saved registrations. */
+    /** Vehicle rows for the owner's table. */
     public List<VehicleEntry> readVehicles() throws Exception {
         List<VehicleEntry> vehicles = new ArrayList<>();
         for (String record : loadOwnerRecords()) {
@@ -110,7 +110,7 @@ public class FileManager implements RecordWriter {
             if (fields.length < 9 || !"OWNER".equals(fields[1])) {
                 continue;
             }
-            // Current records include username and email; older ones start with owner ID.
+            // Records with username and email start at owner ID index 4; others start at index 2.
             int ownerIndex = fields.length >= 11 ? 4 : 2;
             String accountEmail = ownerIndex == 4 ? fields[3].trim() : "";
             if (fields.length <= ownerIndex + 6 || fields[ownerIndex + 1].trim().isEmpty()) {
@@ -182,19 +182,16 @@ public class FileManager implements RecordWriter {
         }
     }
     
-    //Load only client records
-    public List<String> loadClientRecords() throws Exception {
-        List<String> clientRecords = new ArrayList<>();
-          List<String> allRecords = loadAllRecords();
-        
-        for (String record : allRecords) {
-            if (record.contains("CLIENT|")) {
-                clientRecords.add(record);
+    // Load only JOB records.
+    public List<String> loadJobRecords() throws Exception {
+        List<String> jobRecords = new ArrayList<String>();
+        for (String record : loadAllRecords()) {
+            if (record.contains("JOB|")) {
+                jobRecords.add(record);
             }
-              }
-        
-        return clientRecords;
         }
+        return jobRecords;
+    }
     
     //Get the file path
     public String getFilePath() {
