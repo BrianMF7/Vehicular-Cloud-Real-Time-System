@@ -7,6 +7,8 @@ public class Job {
     private String jobId;
     private int estimatedDuration;
     private String deadline;
+    // When the job becomes available.
+    private String availability;
     // Smaller positive values have higher priority (1 is the highest priority).
     private int priority;
 
@@ -17,10 +19,16 @@ public class Job {
 
     public Job(String clientId, String jobId, int estimatedDuration,
                String deadline, int priority) {
+        this(clientId, jobId, estimatedDuration, deadline, priority, "");
+    }
+
+    public Job(String clientId, String jobId, int estimatedDuration,
+               String deadline, int priority, String availability) {
         this.clientId = clientId;
         this.jobId = jobId;
         this.estimatedDuration = estimatedDuration;
         this.deadline = deadline;
+        this.availability = availability == null ? "" : availability.trim();
         setPriority(priority);
     }
 
@@ -55,6 +63,14 @@ public class Job {
 
     public void setDeadline(String deadline) {
         this.deadline = deadline;
+    }
+
+    public String getAvailability() {
+        return availability;
+    }
+
+    public void setAvailability(String availability) {
+        this.availability = availability == null ? "" : availability.trim();
     }
 
     public int getPriority() {

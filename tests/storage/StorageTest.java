@@ -43,23 +43,24 @@ class StorageTest {
         assertSame(latest, server.getLatestCheckpoint("JOB-123"));
     }
 
-    // Verifies that FileManager timestamps records and RecordParser reads the current GUI format.
+    // Verifies that FileManager timestamps records and RecordParser reads JOB lines.
     @Test
-    void shouldSaveAndLoadCurrentGuiRecords() throws Exception {
+    void shouldSaveAndLoadJobAndOwnerRecords() throws Exception {
         FileManager fileManager = new FileManager(temporaryDirectory.resolve("test-log.txt"));
-        fileManager.saveRecord("CLIENT|Sajid|sajid@example.com|client-1|job-1|10-30-2026|7|11-02-2026|2");
+        fileManager.saveRecord("JOB|Sajid|sajid@example.com|client-1|job-1|10-30-2026|7|11-02-2026|2");
         fileManager.saveRecord("OWNER|Sajid|sajid@example.com|owner-1|car-1|Toyota|Camry|2020|09:00|17:00|10.0");
 
         List<String> records = fileManager.loadAllRecords();
         assertEquals(2, records.size());
-        assertTrue(records.get(0).matches("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\|CLIENT\\|.*"));
-        assertEquals(1, fileManager.loadClientRecords().size());
+        assertTrue(records.get(0).matches("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\|JOB\\|.*"));
+        assertEquals(1, fileManager.loadJobRecords().size());
         assertEquals(1, fileManager.loadOwnerRecords().size());
 
         List<Job> jobs = RecordParser.loadAllJobs(fileManager);
         assertEquals(1, jobs.size());
         assertEquals("client-1", jobs.get(0).getClientId());
         assertEquals("job-1", jobs.get(0).getJobId());
+        assertEquals("10-30-2026", jobs.get(0).getAvailability());
         assertEquals(7, jobs.get(0).getEstimatedDuration());
         assertEquals("11-02-2026", jobs.get(0).getDeadline());
         assertEquals(2, jobs.get(0).getPriority());
@@ -70,25 +71,16 @@ class StorageTest {
         assertEquals("Toyota", vehicles.get(0).getMake());
     }
 
-    // Verifies that old client records without user details still load with priority 1
+    // Verifies that a JOB line without a timestamp still loads.
     @Test
-    void shouldLoadLegacyClientRecords() {
-        Job job = RecordParser.parseClientRecord("CLIENT|client-2|job-2|4|11-03-2026");
+    void shouldParseJobRecords() {
+        Job job = RecordParser.parseJobRecord(
+                "JOB|Sajid|sajid@example.com|client-2|job-2|10-30-2026|4|11-03-2026|1");
         assertNotNull(job);
         assertEquals("client-2", job.getClientId());
         assertEquals("job-2", job.getJobId());
+        assertEquals("10-30-2026", job.getAvailability());
         assertEquals(4, job.getEstimatedDuration());
-        assertEquals(1, job.getPriority());
-    }
-
-    // Verifies that current client records without a priority use the default priority of 1.
-    @Test
-    void shouldUseDefaultPriorityWhenCurrentRecordHasNoPriority() {
-        Job job = RecordParser.parseClientRecord(
-                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-3|job-3|10-30-2026|6|11-03-2026");
-
-        assertNotNull(job);
-        assertEquals(6, job.getEstimatedDuration());
         assertEquals(1, job.getPriority());
     }
 
@@ -114,20 +106,20 @@ class StorageTest {
         assertNull(server.getLatestCheckpoint("missing-job"));
     }
 
-    // Verifies that invalid, incomplete, or unexpected client records gets ignored
+    // Verifies that invalid or incomplete JOB lines are ignored.
     @Test
-    void shouldRejectInvalidClientRecords() {
-        assertNull(RecordParser.parseClientRecord(
-                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com||job-4|10-30-2026|6|11-03-2026"));
-        assertNull(RecordParser.parseClientRecord(
-                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|0|11-03-2026"));
-        assertNull(RecordParser.parseClientRecord(
-                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|six|11-03-2026"));
-        assertNull(RecordParser.parseClientRecord(
-                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|6|11-03-2026|0"));
-        assertNull(RecordParser.parseClientRecord(
-                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10/30/2026|6|11-03-2026"));
-        assertNull(RecordParser.parseClientRecord(
-                "2026-10-27 11:00:00|CLIENT|Sajid|sajid@example.com|client-4|job-4|10-30-2026|6|11-03-2026|2|extra"));
+    void shouldRejectInvalidJobRecords() {
+        assertNull(RecordParser.parseJobRecord(
+                "2026-10-27 11:00:00|JOB|Sajid|sajid@example.com|client-4||10-30-2026|6|11-03-2026|2"));
+        assertNull(RecordParser.parseJobRecord(
+                "2026-10-27 11:00:00|JOB|Sajid|sajid@example.com|client-4|job-4|10-30-2026|0|11-03-2026|2"));
+        assertNull(RecordParser.parseJobRecord(
+                "2026-10-27 11:00:00|JOB|Sajid|sajid@example.com|client-4|job-4|10-30-2026|six|11-03-2026|2"));
+        assertNull(RecordParser.parseJobRecord(
+                "2026-10-27 11:00:00|JOB|Sajid|sajid@example.com|client-4|job-4|10-30-2026|6|11-03-2026|0"));
+        assertNull(RecordParser.parseJobRecord(
+                "2026-10-27 11:00:00|JOB|Sajid|sajid@example.com|client-4|job-4|10-30-2026|6|11-03-2026"));
+        assertNull(RecordParser.parseJobRecord(
+                "2026-10-27 11:00:00|JOB|Sajid|sajid@example.com|client-4|job-4|10-30-2026|6|11-03-2026|2|extra"));
     }
 }
