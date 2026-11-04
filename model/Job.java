@@ -1,6 +1,9 @@
 package model;
 
-public class Job {
+import java.io.Serializable;
+
+public class Job implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     /* Private fields use encapsulation so other classes cannot directly access or change the job's data */
     private String clientId;
