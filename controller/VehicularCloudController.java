@@ -158,7 +158,7 @@ public class VehicularCloudController {
         if (findVehicle(vehicle.getVehicleId()) != null) {
             return false;
         }
-        if (compute < 0) {
+        if (!Double.isFinite(compute) || compute < 0) {
             return false;
         }
         String vehicleId = vehicle.getVehicleId();

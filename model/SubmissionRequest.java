@@ -48,6 +48,9 @@ public final class SubmissionRequest implements Serializable {
         if (vehicle == null) {
             throw new IllegalArgumentException("Vehicle is required.");
         }
+        if (!Double.isFinite(computePower) || computePower < 0) {
+            throw new IllegalArgumentException("Compute power must be a finite number that is zero or greater.");
+        }
         return new SubmissionRequest(RequestType.VEHICLE, null, vehicle, ownerId, computePower,
                 requesterName, requesterEmail);
     }
