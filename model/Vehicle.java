@@ -1,6 +1,9 @@
 package model;
 
-public class Vehicle {
+import java.io.Serializable;
+
+public class Vehicle implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     /*  Private fields use encapsulation so our other classes cannot directly change the vehicle's data */
     private String vehicleId;

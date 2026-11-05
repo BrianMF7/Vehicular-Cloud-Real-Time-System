@@ -143,7 +143,7 @@ public class MainFrame extends JFrame implements SaveListener {
         Font defaultFont = new JLabel().getFont();
         
         //Title section
-        JLabel title = new JLabel("CRTS: Vehicular Cloud");
+        JLabel title = new JLabel("VCRTS: Vehicular Cloud");
            title.setFont(defaultFont.deriveFont(Font.BOLD, 22f));
            title.setAlignmentX(Component.LEFT_ALIGNMENT);
         cardPanel.add(title);
@@ -382,7 +382,7 @@ public class MainFrame extends JFrame implements SaveListener {
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         
-        JLabel title = new JLabel("CRTS: Vehicular Cloud Real Time System");
+        JLabel title = new JLabel("VCRTS: Vehicular Cloud Real Time System");
         title.setFont(defaultFont.deriveFont(Font.BOLD, defaultFont.getSize() + 6));
         title.setAlignmentX(CENTER_ALIGNMENT);
         content.add(title);
