@@ -101,7 +101,7 @@ class VehicularCloudControllerTest {
         assertEquals(4, controller.getVehicles().size());
     }
 
-    // Verifies that null, blank, duplicate, and negative compute cars are refused.
+    // Verifies that null, blank, duplicate, negative, NaN, and infinite compute cars are refused.
     @Test
     void shouldRejectInvalidVehicles() {
         VehicularCloudController controller = controller();
@@ -109,6 +109,9 @@ class VehicularCloudControllerTest {
         assertFalse(controller.registerVehicle(new Vehicle(null, "Toyota", "Camry", 2020, "09:00", "17:00")));
         assertFalse(controller.registerVehicle(vehicle("   ")));
         assertFalse(controller.registerVehicle(vehicle("car-1"), -1.0));
+        assertFalse(controller.registerVehicle(vehicle("car-nan"), Double.NaN));
+        assertFalse(controller.registerVehicle(vehicle("car-infinite"), Double.POSITIVE_INFINITY));
+        assertFalse(controller.registerVehicle(vehicle("car-negative-infinite"), Double.NEGATIVE_INFINITY));
         assertEquals(0, controller.getVehicles().size());
 
         assertTrue(controller.registerVehicle(vehicle("car-1"), 10.0));

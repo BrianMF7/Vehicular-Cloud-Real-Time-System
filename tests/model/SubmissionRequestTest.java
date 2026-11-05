@@ -104,6 +104,25 @@ class SubmissionRequestTest {
                 () -> new ServerResponse("request-1", null, "Received"));
     }
 
+    // Verifies that invalid numeric values cannot be sent to the controller as compute power.
+    @Test
+    void shouldRejectInvalidComputePower() {
+        Vehicle vehicle = new Vehicle("vehicle-1", "Toyota", "Camry", 2020,
+                "11-10-2026 09:00", "11-10-2026 17:00");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> SubmissionRequest.forVehicle(vehicle, "owner-1", -1, "Sajid", "sajid@example.com"));
+        assertThrows(IllegalArgumentException.class,
+                () -> SubmissionRequest.forVehicle(vehicle, "owner-1", Double.NaN,
+                        "Sajid", "sajid@example.com"));
+        assertThrows(IllegalArgumentException.class,
+                () -> SubmissionRequest.forVehicle(vehicle, "owner-1", Double.POSITIVE_INFINITY,
+                        "Sajid", "sajid@example.com"));
+        assertThrows(IllegalArgumentException.class,
+                () -> SubmissionRequest.forVehicle(vehicle, "owner-1", Double.NEGATIVE_INFINITY,
+                        "Sajid", "sajid@example.com"));
+    }
+
     private SubmissionRequest roundTrip(SubmissionRequest request) throws Exception {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
