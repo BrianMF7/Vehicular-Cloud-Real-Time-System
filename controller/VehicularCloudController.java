@@ -10,6 +10,10 @@ import java.util.List;
 import java.util.Map;
 
 import model.Job;
+import model.RequestStatus;
+import model.RequestType;
+import model.ServerResponse;
+import model.SubmissionRequest;
 import model.Vehicle;
 import scheduling.PriorityScheduler;
 import scheduling.ScheduleResult;
@@ -284,6 +288,30 @@ public class VehicularCloudController {
         refreshSchedule();
         return true;
     }
+
+    //This is to help store the job or car only when the controller accepts the request.
+    public ServerResponse decideRequest(SubmissionRequest request, boolean accept) {
+              if (request == null) {
+            throw new IllegalArgumentException("Request is required.");
+            }
+                 if (!accept) {
+            return new ServerResponse(request.getRequestId(), RequestStatus.REJECTED,
+                    "Request rejected. Nothing was saved.");
+        }
+            boolean saved = false;
+               if (request.getType() == RequestType.JOB) {
+                saved = submitJob(request.getJob(), request.getRequesterName(), request.getRequesterEmail());
+        } else if (request.getType() == RequestType.VEHICLE) {
+            saved = registerVehicle(request.getVehicle(), request.getComputePower(),
+                    request.getOwnerId(), request.getRequesterEmail());
+              }
+        if (!saved) {
+            return new ServerResponse(request.getRequestId(), RequestStatus.ERROR,
+                    "Could not save the request.");
+           }
+        return new ServerResponse(request.getRequestId(), RequestStatus.ACCEPTED,
+                "Request accepted and stored.");
+     }
 
     // Signed-in name stored with the job, or an empty string if none was saved.
     public String getJobAccountName(String jobId) {
