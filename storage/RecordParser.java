@@ -1,3 +1,4 @@
+
 package storage;
 
 import java.util.ArrayList;
@@ -10,7 +11,8 @@ import model.Vehicle;
 public class RecordParser {
 
     // Parse a JOB line:
-    // timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority
+    // Old: timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority
+    // New: timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority|startTime|endTime
     public static Job parseJobRecord(String recordLine) {
         if (recordLine == null || !recordLine.contains("JOB|")) {
             return null;
@@ -18,24 +20,60 @@ public class RecordParser {
 
         try {
             String[] parts = recordLine.split("\\|", -1);
+
             int jobIndex = findRecordType(parts, "JOB");
+
             if (jobIndex < 0) {
                 return null;
             }
+
             int dataIndex = jobIndex + 1;
-            if (parts.length != dataIndex + 8) {
+
+            // Accept either the old 8-field or new 10-field format.
+            int fieldCount = parts.length - dataIndex;
+
+            if (fieldCount != 8 && fieldCount != 10) {
                 return null;
             }
+
             String clientId = parts[dataIndex + 2].trim();
             String jobId = parts[dataIndex + 3].trim();
             String availability = parts[dataIndex + 4].trim();
-            int duration = Integer.parseInt(parts[dataIndex + 5].trim());
+
+            int duration = Integer.parseInt(
+                    parts[dataIndex + 5].trim()
+            );
+
             String deadline = parts[dataIndex + 6].trim();
-            int priority = Integer.parseInt(parts[dataIndex + 7].trim());
+
+            int priority = Integer.parseInt(
+                    parts[dataIndex + 7].trim()
+            );
+
+            // Older records do not contain times.
+            String startTime = "";
+            String endTime = "";
+
+            // Read times from newer records.
+            if (fieldCount == 10) {
+                startTime = parts[dataIndex + 8].trim();
+                endTime = parts[dataIndex + 9].trim();
+            }
+
             if (isBlank(jobId) || duration <= 0 || priority <= 0) {
                 return null;
             }
-            return new Job(clientId, jobId, duration, deadline, priority, availability);
+
+            return new Job(
+                    clientId,
+                    jobId,
+                    duration,
+                    deadline,
+                    priority,
+                    availability,
+                    startTime,
+                    endTime
+            );
         } catch (Exception ex) {
             // A bad saved record is ignored so the rest of the log can still load.
         }
@@ -50,25 +88,43 @@ public class RecordParser {
 
         try {
             String[] parts = recordLine.split("\\|", -1);
+
             int ownerIndex = findRecordType(parts, "OWNER");
+
             if (ownerIndex == -1) {
                 return null;
             }
+
             int dataIndex = ownerIndex + 1;
 
             // timestamp|OWNER|username|email|ownerID|vehicleID|make|model|year|arrival|departure|computePower
             if (parts.length >= dataIndex + 9) {
+
                 String vehicleId = parts[dataIndex + 3].trim();
                 String make = parts[dataIndex + 4].trim();
                 String model = parts[dataIndex + 5].trim();
-                int year = Integer.parseInt(parts[dataIndex + 6].trim());
+
+                int year = Integer.parseInt(
+                        parts[dataIndex + 6].trim()
+                );
+
                 String arrival = parts[dataIndex + 7].trim();
                 String departure = parts[dataIndex + 8].trim();
-                return new Vehicle(vehicleId, make, model, year, arrival, departure);
+
+                return new Vehicle(
+                        vehicleId,
+                        make,
+                        model,
+                        year,
+                        arrival,
+                        departure
+                );
             }
+
         } catch (Exception ex) {
             // A bad saved record is ignored so the rest of the log can still load.
         }
+
         return null;
     }
 
@@ -80,6 +136,7 @@ public class RecordParser {
     // Load jobs from a supplied file manager. Tests use this with a temporary file.
     public static List<Job> loadAllJobs(FileManager fileManager) {
         List<Job> jobs = new ArrayList<Job>();
+
         if (fileManager == null) {
             return jobs;
         }
@@ -87,13 +144,16 @@ public class RecordParser {
         try {
             for (String record : fileManager.loadJobRecords()) {
                 Job job = parseJobRecord(record);
+
                 if (job != null) {
                     jobs.add(job);
                 }
             }
+
         } catch (Exception ex) {
             System.err.println("Error loading jobs: " + ex.getMessage());
         }
+
         return jobs;
     }
 
@@ -105,6 +165,7 @@ public class RecordParser {
     // Load vehicles from a supplied file manager. Tests use this with a temporary file.
     public static List<Vehicle> loadAllVehicles(FileManager fileManager) {
         List<Vehicle> vehicles = new ArrayList<Vehicle>();
+
         if (fileManager == null) {
             return vehicles;
         }
@@ -112,13 +173,16 @@ public class RecordParser {
         try {
             for (String record : fileManager.loadOwnerRecords()) {
                 Vehicle vehicle = parseOwnerRecord(record);
+
                 if (vehicle != null) {
                     vehicles.add(vehicle);
                 }
             }
+
         } catch (Exception ex) {
             System.err.println("Error loading vehicles: " + ex.getMessage());
         }
+
         return vehicles;
     }
 
@@ -128,6 +192,7 @@ public class RecordParser {
                 return index;
             }
         }
+
         return -1;
     }
 

@@ -1,10 +1,6 @@
 package gui;
 
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.*;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -25,7 +21,7 @@ public class FormRows {
         return panel;
     }
 
-    public static void addRow(JPanel panel, int row, String label, JTextField field) {
+    public static void addRow(JPanel panel, int row, String label, Component field) {
         //Label stays on the left and does not stretch.
         GridBagConstraints labelCell = new GridBagConstraints();
         labelCell.gridx = 0;
@@ -42,7 +38,9 @@ public class FormRows {
 
         //Text field takes whatever width is left, and can shrink again.
         int rowHeight = field.getPreferredSize().height;
-        field.setMinimumSize(new Dimension(80, rowHeight));
+        if (field instanceof JTextField) {
+            field.setMinimumSize(new Dimension(80, rowHeight));
+        }
         field.setMaximumSize(new Dimension(Integer.MAX_VALUE, rowHeight));
 
         GridBagConstraints fieldCell = new GridBagConstraints();
