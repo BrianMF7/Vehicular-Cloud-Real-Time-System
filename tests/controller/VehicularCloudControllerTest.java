@@ -9,15 +9,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import model.Job;
-import model.Vehicle;
-import scheduling.ScheduleEntry;
-import scheduling.ScheduleResult;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,6 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import model.Job;
+import model.RequestStatus;
+import model.ServerResponse;
+import model.SubmissionRequest;
+import model.Vehicle;
+import scheduling.ScheduleEntry;
+import scheduling.ScheduleResult;
 
 /** JUnit 5 tests for {@link VehicularCloudController}. Run with {@code mvn test}. */
 class VehicularCloudControllerTest {
@@ -511,6 +513,38 @@ class VehicularCloudControllerTest {
         assertEquals(3, reloaded.getJobs().get(0).getPriority());
         assertEquals("form-job", reloaded.getJobs().get(0).getJobId());
     }
+
+    //This is to test that a rejected request is not written, and an accepted one is saved and can be loaded.
+    @Test
+    void shouldSaveOnlyAcceptedRequests() throws IOException {
+        VehicularCloudController controller = controller();
+               Job job = new Job("client-1", "job-9", 4, "11-10-2026", 2, "11-02-2026");
+          SubmissionRequest rejected = SubmissionRequest.forJob(job, "Brian", "brian@test.com");
+
+        ServerResponse no = controller.decideRequest(rejected, false);
+          assertEquals(RequestStatus.REJECTED, no.getStatus());
+           assertEquals(0, controller.getJobs().size());
+                if (Files.exists(LOG)) {
+            assertEquals(0, Files.readAllLines(LOG).size());
+     }
+
+        SubmissionRequest accepted = SubmissionRequest.forJob(job, "Brian", "brian@test.com");
+          ServerResponse yes = controller.decideRequest(accepted, true);
+          assertEquals(RequestStatus.ACCEPTED, yes.getStatus());
+        assertEquals(accepted.getRequestId(), yes.getRequestId());
+        assertEquals(1, controller.getJobs().size());
+
+        VehicularCloudController reloaded = controller();
+             assertEquals("job-9", reloaded.getJobs().get(0).getJobId());
+        assertEquals(2, reloaded.getJobs().get(0).getPriority());
+
+        Vehicle car = vehicle("car-9");
+          SubmissionRequest carRequest = SubmissionRequest.forVehicle(car, "Brian", 4,
+                "Brian", "brian@test.com");
+         assertEquals(RequestStatus.ACCEPTED, controller.decideRequest(carRequest, true).getStatus());
+           assertEquals("Brian", controller.getVehicleOwnerId("car-9"));
+        assertEquals("brian@test.com", controller.getVehicleAccountEmail("car-9"));
+      }
 
     // Verifies that a second controller can read cars, jobs, and the assignment the first one saved.
     @Test
