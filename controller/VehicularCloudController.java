@@ -9,12 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import model.Job;
-import model.RequestStatus;
-import model.RequestType;
-import model.ServerResponse;
-import model.SubmissionRequest;
-import model.Vehicle;
+import model.*;
 import scheduling.PriorityScheduler;
 import scheduling.ScheduleResult;
 import storage.FileManager;
@@ -265,6 +260,7 @@ public class VehicularCloudController {
     }
 
     // Save the job once, including the signed-in account. Returns false if the log write fails.
+
     public boolean submitJob(Job job, String username, String email) {
         if (job == null || isBlank(job.getJobId())) {
             return false;
@@ -276,16 +272,28 @@ public class VehicularCloudController {
             return false;
         }
         String jobId = job.getJobId();
-        if (!saveLine("JOB|" + safe(username) + "|" + safe(email)
-                + "|" + safe(job.getClientId()) + "|" + jobId
-                + "|" + safe(job.getAvailability()) + "|" + job.getEstimatedDuration()
-                + "|" + safe(job.getDeadline()) + "|" + job.getPriority())) {
+
+        // Save the job, including its start and end times.
+        // Save the job using the updated field order.
+        if (!saveLine("JOB|" + safe(username)
+                + "|" + safe(email)
+                + "|" + safe(job.getClientId())
+                + "|" + safe(jobId)
+                + "|" + safe(job.getAvailability())
+                + "|" + safe(job.getStartTime())
+                + "|" + job.getEstimatedDuration()
+                + "|" + safe(job.getDeadline())
+                + "|" + safe(job.getEndTime())
+                + "|" + job.getPriority())) {
+
             return false;
         }
+
         jobs.add(job);
         usernameByJobId.put(jobId, safe(username));
         emailByJobId.put(jobId, safe(email));
         refreshSchedule();
+
         return true;
     }
 

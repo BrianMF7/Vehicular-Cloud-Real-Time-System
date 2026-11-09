@@ -12,6 +12,8 @@ public class Job implements Serializable {
     private String deadline;
     // When the job becomes available.
     private String availability;
+    private String startTime;
+    private String endTime;
     // Smaller positive values have higher priority (1 is the highest priority).
     private int priority;
 
@@ -25,16 +27,22 @@ public class Job implements Serializable {
         this(clientId, jobId, estimatedDuration, deadline, priority, "");
     }
 
-    public Job(String clientId, String jobId, int estimatedDuration,
-               String deadline, int priority, String availability) {
+    public Job(String clientId, String jobId, int estimatedDuration, String deadline,
+               int priority, String availability) {
+        this(clientId, jobId, estimatedDuration, deadline, priority, availability, "", "");
+    }
+
+    public Job(String clientId, String jobId, int estimatedDuration, String deadline,
+               int priority, String availability, String startTime, String endTime) {
         this.clientId = clientId;
         this.jobId = jobId;
         this.estimatedDuration = estimatedDuration;
         this.deadline = deadline;
         this.availability = availability == null ? "" : availability.trim();
+        this.startTime = startTime == null ? "" : startTime.trim();
+        this.endTime = endTime == null ? "" : endTime.trim();
         setPriority(priority);
     }
-
     // getters and setters
     public String getClientId() {
         return clientId;
@@ -86,6 +94,24 @@ public class Job implements Serializable {
         }
         this.priority = priority;
     }
+
+    public String getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(String startTime) {
+        this.startTime = startTime == null ? "" : startTime.trim();
+    }
+
+    public String getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(String endTime) {
+        this.endTime = endTime == null ? "" : endTime.trim();
+    }
+
+
 
     /* Overrides Java's default toString() method so the Jobinformation can be displayed in a readable format */
     @Override

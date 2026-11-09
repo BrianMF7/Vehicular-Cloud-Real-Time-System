@@ -12,5 +12,3 @@
 2026-10-04 01:04:56|OWNER|Jane Doe|janDone@gmail.com|ownerr001|441488cf-3216-4151-b02a-c0a32297f588|Tesla|Model 3|2022|10-21-2026 08:00|10-22-2026 06:00|500.5
 
 
-2026-11-01 22:31:43|VEHICLE|c4e286fd-f3f7-45c8-8455-f1f9907b9077|Toyota|Camry|2020|10-30-2026 09:30|11-02-2026 17:00|4.0|Brian|brianmflores697@gmail.com
-2026-11-01 22:34:01|JOB|Brian|brianmflores697@gmail.com|client-1|job-1|11-01-2026|3|11-06-2026|1

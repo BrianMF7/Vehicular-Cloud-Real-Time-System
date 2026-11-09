@@ -20,6 +20,12 @@
             <version>5.11.4</version>
             <!-- IntelliJ compiles the nested tests directory from the repository-root source tree. -->
         </dependency>
+
+        <dependency>
+            <groupId>com.toedter</groupId>
+            <artifactId>jcalendar</artifactId>
+            <version>1.4</version>
+        </dependency>
     </dependencies>
 
     <!-- The project predates Maven and keeps production packages at the repository root. -->
