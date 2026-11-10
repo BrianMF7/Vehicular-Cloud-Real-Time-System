@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import model.Job;
 
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** JUnit 5 tests for {@link PriorityScheduler}. Run with {@code mvn test}. */
+@Tag("unit")
 class PrioritySchedulerTest {
 
     // Verifies the required sample: lower priority values run first and produce the expected timing.

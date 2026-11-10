@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.io.TempDir;
 
 import model.Checkpoint;
@@ -27,6 +28,7 @@ class StorageTest {
     Path temporaryDirectory;
 
     // Verifies that the server stores results and checkpoints for a job.
+    @Tag("unit")
     @Test
     void shouldStoreResultsAndCheckpoints() throws InterruptedException {
         Server server = new Server("SERVER-001");
@@ -44,6 +46,7 @@ class StorageTest {
     }
 
     // Verifies that FileManager timestamps records and RecordParser reads JOB lines.
+    @Tag("integration")
     @Test
     void shouldSaveAndLoadJobAndOwnerRecords() throws Exception {
         FileManager fileManager = new FileManager(temporaryDirectory.resolve("test-log.txt"));
@@ -72,6 +75,7 @@ class StorageTest {
     }
 
     // Verifies that a JOB line without a timestamp still loads.
+    @Tag("unit")
     @Test
     void shouldParseJobRecords() {
         Job job = RecordParser.parseJobRecord(
@@ -85,6 +89,7 @@ class StorageTest {
     }
 
     // Verifies that empty records are not written to a log file.
+    @Tag("integration")
     @Test
     void shouldRejectEmptyRecords() throws Exception {
         FileManager fileManager = new FileManager(temporaryDirectory.resolve("empty-record-test.txt"));
@@ -95,6 +100,7 @@ class StorageTest {
     }
 
     // Verifies that the server rejects missing checkpoint and job information.
+    @Tag("unit")
     @Test
     void shouldRejectInvalidServerData() {
         Server server = new Server("SERVER-002");
@@ -107,6 +113,7 @@ class StorageTest {
     }
 
     // Verifies that invalid or incomplete JOB lines are ignored.
+    @Tag("unit")
     @Test
     void shouldRejectInvalidJobRecords() {
         assertNull(RecordParser.parseJobRecord(

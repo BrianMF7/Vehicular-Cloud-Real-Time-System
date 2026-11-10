@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import model.Job;
 import model.RequestStatus;
@@ -17,6 +18,7 @@ import model.ServerResponse;
 import model.SubmissionRequest;
 
 /** Tests the queue of requests waiting for Accept or Reject. */
+@Tag("unit")
 class PendingRequestRegistryTest {
 
     // Verifies that a new request is held until the controller reviews it.

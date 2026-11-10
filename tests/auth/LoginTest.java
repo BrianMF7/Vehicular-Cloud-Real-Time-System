@@ -6,6 +6,7 @@ import storage.UserStorage;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +26,7 @@ public class LoginTest {
         storage.useFileForTesting(tempDir.resolve("users.txt"));
     }
     
+    @Tag("integration")
     @Test
     public void testSignUpSuccess() {
         //Test successful sign up
@@ -38,6 +40,7 @@ public class LoginTest {
         assertTrue(storage.emailExists("john@test.com"), "Email should exist");
     }
     
+    @Tag("integration")
     @Test
     public void testSignUpDuplicateEmail() {
         //Create first user
@@ -48,6 +51,7 @@ public class LoginTest {
         assertFalse(result, "Sign up with duplicate email should fail");
     }
     
+    @Tag("integration")
     @Test
     public void testSignInSuccess() {
         //Create a user
@@ -60,6 +64,7 @@ public class LoginTest {
         assertEquals("john@test.com", user.getEmail(), "Email should match");
     }
     
+    @Tag("integration")
     @Test
     public void testSignInWrongPassword() {
         //Create a user
@@ -70,6 +75,7 @@ public class LoginTest {
         assertNull(user, "User should be null with wrong password");
     }
     
+    @Tag("integration")
     @Test
     public void testSignInUserNotFound() {
         //Try to sign in with email that doesn't exist
@@ -77,6 +83,7 @@ public class LoginTest {
         assertNull(user, "User should be null when not found");
     }
     
+    @Tag("unit")
     @Test
     public void testCheckPassword() {
         //The user stores a hash, not the typed password
@@ -86,6 +93,7 @@ public class LoginTest {
         assertFalse(user.checkPassword("wrongpass"), "Wrong password should return false");
     }
 
+    @Tag("integration")
     @Test
     public void testEmailIgnoresCapitalLetters() {
         storage.signUp("John Doe", "John@test.com", "pass123");
@@ -98,6 +106,7 @@ public class LoginTest {
         assertEquals("john@test.com", user.getEmail(), "Saved email should be lowercase");
     }
 
+    @Tag("integration")
     @Test
     public void testAccountStaysAfterReload() {
         Path accountFile = tempDir.resolve("users.txt");
@@ -111,6 +120,7 @@ public class LoginTest {
         assertEquals("John Doe", user.getName());
     }
     
+    @Tag("integration")
     @Test
     public void testEmailExists() {
         //Test email check

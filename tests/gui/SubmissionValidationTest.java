@@ -1,6 +1,7 @@
 package gui;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -9,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Validation tests for required fields in the Client and Owner submission workflows.
  * These tests deliberately use missing values, so they fail before any file is written.
  */
+@Tag("unit")
 class SubmissionValidationTest {
 
     @Test

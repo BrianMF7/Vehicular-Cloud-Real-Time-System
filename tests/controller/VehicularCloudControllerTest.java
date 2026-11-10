@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import model.Job;
@@ -30,6 +31,7 @@ import scheduling.ScheduleEntry;
 import scheduling.ScheduleResult;
 
 /** JUnit 5 tests for {@link VehicularCloudController}. Run with {@code mvn test}. */
+@Tag("integration")
 class VehicularCloudControllerTest {
 
     private static final Path LOG = Paths.get("vehicular_cloud_log.txt");
