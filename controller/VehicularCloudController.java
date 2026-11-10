@@ -273,18 +273,18 @@ public class VehicularCloudController {
         }
         String jobId = job.getJobId();
 
-        // Save the job, including its start and end times.
-        // Save the job using the updated field order.
+        // Same field order RecordParser expects: duration, deadline, and priority
+        // stay in their old spots, and start/end times are appended at the end.
         if (!saveLine("JOB|" + safe(username)
                 + "|" + safe(email)
                 + "|" + safe(job.getClientId())
                 + "|" + safe(jobId)
                 + "|" + safe(job.getAvailability())
-                + "|" + safe(job.getStartTime())
                 + "|" + job.getEstimatedDuration()
                 + "|" + safe(job.getDeadline())
-                + "|" + safe(job.getEndTime())
-                + "|" + job.getPriority())) {
+                + "|" + job.getPriority()
+                + "|" + safe(job.getStartTime())
+                + "|" + safe(job.getEndTime()))) {
 
             return false;
         }
