@@ -18,6 +18,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import model.Job;
@@ -27,6 +28,7 @@ import model.SubmissionRequest;
 import model.Vehicle;
 
 /** Tests the VC Controller server: acknowledgement, Accept/Reject, and file storage. */
+@Tag("integration")
 class ControllerServerTest {
 
     private static final Path LOG = Paths.get("vehicular_cloud_log.txt");
