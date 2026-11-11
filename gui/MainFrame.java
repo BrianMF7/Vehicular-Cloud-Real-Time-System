@@ -33,36 +33,37 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-
+import java.util.List;
+import javax.swing.SwingUtilities;
 //Main window with login and app screens
 public class MainFrame extends JFrame implements SaveListener {
     
     //Single active frame
-        private static MainFrame active;
+    private static MainFrame active;
     
     //Card layout for switching screens
-        private final CardLayout cards = new CardLayout();
+    private final CardLayout cards = new CardLayout();
     private final JPanel cardPanel = new JPanel(cards);
     
     //Form holder for owner/client forms
     private final JPanel formHolder = new JPanel(new BorderLayout());
-        private final JPanel backBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+    private final JPanel backBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
     private JPanel header; 
 
     //Labels at top
     private final JLabel stepLabel = new JLabel("Welcome");
-         private final JLabel promptLabel = new JLabel("Please sign in to continue.");
+    private final JLabel promptLabel = new JLabel("Please sign in to continue.");
     
     //Current session info
     private String role = "";
-      private String currentUser = "";
-      private String currentEmail = "";
+    private String currentUser = "";
+    private String currentEmail = "";
     
     //Login fields
     private final JTextField nameField = new JTextField();
-       private final JTextField emailField = new JTextField();
-       private final JPasswordField passwordField = new JPasswordField();
-      private final JPasswordField confirmPasswordField = new JPasswordField();
+    private final JTextField emailField = new JTextField();
+    private final JPasswordField passwordField = new JPasswordField();
+    private final JPasswordField confirmPasswordField = new JPasswordField();
     
     //Login mode tracker
     private boolean isSignUpMode = false;
@@ -71,7 +72,7 @@ public class MainFrame extends JFrame implements SaveListener {
     
     //User greeting label
     private JLabel userGreeting;
-    
+
     public MainFrame() {
         super("Vehicular Cloud Console");
             active = this;
@@ -80,8 +81,8 @@ public class MainFrame extends JFrame implements SaveListener {
         //Header at top
         header = new JPanel(new GridLayout(2, 1, 0, 8));
         header.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-           header.add(stepLabel);
-          header.add(promptLabel);
+        header.add(stepLabel);
+        header.add(promptLabel);
         
         //Create login screen
         JPanel loginScreen = createLoginScreen();
@@ -92,13 +93,13 @@ public class MainFrame extends JFrame implements SaveListener {
         
         //Add all screens to card panel
         cardPanel.add(loginScreen, "login");
-            cardPanel.add(welcomeScreen, "welcome");
+        cardPanel.add(welcomeScreen, "welcome");
         cardPanel.add(formHolder, "form");
         cardPanel.add(controllerScreen, "controller");
         
         //Back button
         backBar.setBorder(BorderFactory.createEmptyBorder(16, 8, 8, 8));
-           JButton backButton = new JButton("Back");
+        JButton backButton = new JButton("Back");
         backBar.add(backButton);
         
         backButton.addActionListener(new ActionListener() {
@@ -108,8 +109,8 @@ public class MainFrame extends JFrame implements SaveListener {
              });
         
         setLayout(new BorderLayout(0, 8));
-           add(header, BorderLayout.NORTH);
-           add(cardPanel, BorderLayout.CENTER);
+        add(header, BorderLayout.NORTH);
+        add(cardPanel, BorderLayout.CENTER);
         add(backBar, BorderLayout.SOUTH);
         
         //Start with login screen
@@ -123,18 +124,17 @@ public class MainFrame extends JFrame implements SaveListener {
     private JPanel createLoginScreen() {
         //Main background panel
         JPanel screen = new JPanel(new GridBagLayout());
-           screen.setBackground(new Color(243, 244, 246));
+        screen.setBackground(new Color(243, 244, 246));
         
-           GridBagConstraints gbc = new GridBagConstraints();
+        GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
-           gbc.gridy = 0;
+        gbc.gridy = 0;
         gbc.insets = new Insets(20, 20, 20, 20);
         
         //White card panel - will be rebuilt dynamically
-           JPanel cardPanel = buildLoginCard();
+        JPanel cardPanel = buildLoginCard();
         
         screen.add(cardPanel, gbc);
-        
         return screen;
         }
     
@@ -745,6 +745,7 @@ public class MainFrame extends JFrame implements SaveListener {
           cards.show(cardPanel, "welcome");
         revalidate();
         repaint();
+        SwingUtilities.invokeLater(this::showPendingNotificationsForCurrentUser);
     }
     
     //Show form
@@ -805,4 +806,38 @@ public class MainFrame extends JFrame implements SaveListener {
             }
         JOptionPane.showMessageDialog(this, message, "Could not save", JOptionPane.ERROR_MESSAGE);
        }
+
+    // Queue a final job decision for the original submitter.
+    public static void queueClientNotification(
+            String recipientEmail,
+            String title,
+            String message
+    ) {
+        if (recipientEmail == null || recipientEmail.trim().isEmpty()) {
+            return;
+        }
+        ClientNotificationManager.add(recipientEmail, title, message);
+        // Check whether the intended client is currently logged in.
+        SwingUtilities.invokeLater(() -> {
+            if (active != null) {
+                active.showPendingNotificationsForCurrentUser();
+            }
+        });
+    }
+
+    // Display notifications belonging only to the currently logged-in client.
+    private void showPendingNotificationsForCurrentUser() {
+        if (currentEmail == null || currentEmail.trim().isEmpty() || isController()) {
+            return;
+        }
+        List<ClientNotificationManager.ClientNotification> pending = ClientNotificationManager.takeFor(currentEmail);
+        for (ClientNotificationManager.ClientNotification notification : pending) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    notification.getMessage(),
+                    notification.getTitle(),
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+        }
+    }
 }
