@@ -13,8 +13,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 /** Tests the messages that will be sent between the forms and Controller server. */
+@Tag("unit")
 class SubmissionRequestTest {
 
     // Verifies that a job request keeps the job and signed-in client information together.
