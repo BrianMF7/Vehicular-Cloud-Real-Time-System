@@ -14,24 +14,23 @@ public class RecordParser {
     // Old: timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority
     // New: timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority|startTime|endTime
     public static Job parseJobRecord(String recordLine) {
+
         if (recordLine == null || !recordLine.contains("JOB|")) {
             return null;
         }
-
         try {
             String[] parts = recordLine.split("\\|", -1);
-
             int jobIndex = findRecordType(parts, "JOB");
-
             if (jobIndex < 0) {
                 return null;
             }
-
             int dataIndex = jobIndex + 1;
-
-            // Accept either the old 8-field or new 10-field format.
             int fieldCount = parts.length - dataIndex;
-
+            // Remove the empty field created by the final delimiter.
+            if (fieldCount > 0 && parts[parts.length - 1].isEmpty()) {
+                fieldCount--;
+            }
+            // Support older records without times and records with times.
             if (fieldCount != 8 && fieldCount != 10) {
                 return null;
             }
@@ -39,31 +38,36 @@ public class RecordParser {
             String clientId = parts[dataIndex + 2].trim();
             String jobId = parts[dataIndex + 3].trim();
             String availability = parts[dataIndex + 4].trim();
-
-            int duration = Integer.parseInt(
-                    parts[dataIndex + 5].trim()
-            );
-
-            String deadline = parts[dataIndex + 6].trim();
-
-            int priority = Integer.parseInt(
-                    parts[dataIndex + 7].trim()
-            );
-
-            // Older records do not contain times.
             String startTime = "";
             String endTime = "";
+            int duration;
+            String deadline;
+            int priority;
 
-            // Read times from newer records.
-            if (fieldCount == 10) {
-                startTime = parts[dataIndex + 8].trim();
-                endTime = parts[dataIndex + 9].trim();
+            if (fieldCount == 8) {
+                duration = Integer.parseInt(parts[dataIndex + 5].trim());
+                deadline = parts[dataIndex + 6].trim();
+                priority = Integer.parseInt(parts[dataIndex + 7].trim()
+                );
             }
-
+            else {
+                try {
+                    duration = Integer.parseInt(parts[dataIndex + 5].trim());
+                    deadline = parts[dataIndex + 6].trim();
+                    priority = Integer.parseInt(parts[dataIndex + 7].trim());
+                    startTime = parts[dataIndex + 8].trim();
+                    endTime = parts[dataIndex + 9].trim();
+                } catch (NumberFormatException ex) {
+                    startTime = parts[dataIndex + 5].trim();
+                    duration = Integer.parseInt(parts[dataIndex + 6].trim());
+                    deadline = parts[dataIndex + 7].trim();
+                    endTime = parts[dataIndex + 8].trim();
+                    priority = Integer.parseInt(parts[dataIndex + 9].trim());
+                }
+            }
             if (isBlank(jobId) || duration <= 0 || priority <= 0) {
                 return null;
             }
-
             return new Job(
                     clientId,
                     jobId,
@@ -75,10 +79,11 @@ public class RecordParser {
                     endTime
             );
         } catch (Exception ex) {
-            // A bad saved record is ignored so the rest of the log can still load.
+            // Ignore malformed records so other saved records can still load.
         }
         return null;
     }
+
 
     // Parse an OWNER line into a Vehicle object.
     public static Vehicle parseOwnerRecord(String recordLine) {

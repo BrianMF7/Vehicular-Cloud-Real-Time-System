@@ -35,7 +35,6 @@ public class ClientSubmit implements SubmitStrategy {
 
         this(clientId, jobId, jobAvailability, duration, deadline, "1");
     }
-
     // Constructor used when priority is supplied but times are not.
     public ClientSubmit(
             String clientId,
@@ -56,7 +55,6 @@ public class ClientSubmit implements SubmitStrategy {
                 ""
         );
     }
-
     // Constructor used by the updated form with start and end times.
     public ClientSubmit(
             String clientId,
@@ -85,9 +83,7 @@ public class ClientSubmit implements SubmitStrategy {
 
     // Same save path with a supplied controller for testing.
     public void submit(VehicularCloudController controller) throws Exception {
-
         Job job = createJob();
-
         if (!controller.submitJob(
                 job,
                 MainFrame.getCurrentUser(),
@@ -100,7 +96,6 @@ public class ClientSubmit implements SubmitStrategy {
             );
         }
     }
-
       // Check the form and build the job. This does not write the file.
     public Job createJob() throws Exception {
         validateFields();
@@ -165,18 +160,13 @@ public class ClientSubmit implements SubmitStrategy {
         try {
             priorityValue = Integer.parseInt(priority.trim());
         } catch (NumberFormatException ex) {
-            throw new Exception(
-                    "Priority must be a positive whole number."
-            );
+            throw new Exception("Priority must be a positive whole number.");
         }
-
         if (priorityValue <= 0) {
             throw new Exception("Priority must be greater than zero.");
         }
-
         // Validate duration.
         int durationValue;
-
         try {
             durationValue = Integer.parseInt(duration.trim());
         } catch (NumberFormatException ex) {
@@ -184,78 +174,41 @@ public class ClientSubmit implements SubmitStrategy {
                     "Duration must be a valid whole number of days."
             );
         }
-
         if (durationValue <= 0) {
             throw new Exception("Duration must be greater than zero.");
         }
-
         // Strictly validate MM-dd-yyyy dates.
-        DateTimeFormatter dateFormatter =
-                DateTimeFormatter.ofPattern("MM-dd-uuuu")
-                        .withResolverStyle(ResolverStyle.STRICT);
-
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MM-dd-uuuu").withResolverStyle(ResolverStyle.STRICT);
         LocalDate availabilityDate;
         LocalDate deadlineDate;
-
         try {
-            availabilityDate = LocalDate.parse(
-                    jobAvailability.trim(),
-                    dateFormatter
-            );
+            availabilityDate = LocalDate.parse(jobAvailability.trim(), dateFormatter);
         } catch (DateTimeParseException ex) {
-            throw new Exception(
-                    "Invalid availability date. Use MM-dd-yyyy."
-            );
+            throw new Exception("Invalid availability date. Use MM-dd-yyyy.");
         }
-
         try {
-            deadlineDate = LocalDate.parse(
-                    deadline.trim(),
-                    dateFormatter
-            );
+            deadlineDate = LocalDate.parse(deadline.trim(), dateFormatter);
         } catch (DateTimeParseException ex) {
-            throw new Exception(
-                    "Invalid deadline date. Use MM-dd-yyyy."
-            );
+            throw new Exception("Invalid deadline date. Use MM-dd-yyyy.");
         }
-
         // Dates cannot be in the past.
         LocalDate today = LocalDate.now();
-
         if (availabilityDate.isBefore(today)) {
-            throw new Exception(
-                    "Job availability cannot be in the past."
-            );
+            throw new Exception("Job availability cannot be in the past.");
         }
-
         if (deadlineDate.isBefore(today)) {
-            throw new Exception(
-                    "Job deadline cannot be in the past."
-            );
+            throw new Exception("Job deadline cannot be in the past.");
         }
-
         // Preserve the existing rule: deadline date must be later.
         if (!deadlineDate.isAfter(availabilityDate)) {
-            throw new Exception(
-                    "Deadline must be after job availability."
-            );
+            throw new Exception("Deadline must be after job availability.");
         }
-
         // Validate the start and end times.
         validateTimes(availabilityDate, deadlineDate);
-
         // Calculate duration using calendar days.
-        long minimumDuration =
-                ChronoUnit.DAYS.between(
-                        availabilityDate,
-                        deadlineDate
-                );
-
+        long minimumDuration = ChronoUnit.DAYS.between(availabilityDate, deadlineDate);
         if (durationValue > minimumDuration) {
-            throw new Exception(
-                    "Duration cannot exceed "
-                            + minimumDuration
-                            + " days between availability and deadline."
+            throw new Exception("Duration cannot exceed " + minimumDuration + " days between availability and deadline."
             );
         }
     }
@@ -269,19 +222,15 @@ public class ClientSubmit implements SubmitStrategy {
         boolean endMissing = isEmpty(endTime);
 
         // Older constructors may not supply times.
-        // Both can be empty, but only one cannot be empty.
         if (startMissing && endMissing) {
             return;
         }
-
         if (startMissing || endMissing) {
             throw new Exception(
                     "Both start time and end time are required."
             );
         }
-
-        DateTimeFormatter timeFormatter =
-                DateTimeFormatter.ofPattern("hh:mm a", Locale.US);
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a", Locale.US);
 
         LocalTime parsedStartTime;
         LocalTime parsedEndTime;
@@ -296,7 +245,6 @@ public class ClientSubmit implements SubmitStrategy {
                     "Invalid start time. Use the format hh:mm AM/PM."
             );
         }
-
         try {
             parsedEndTime = LocalTime.parse(
                     endTime.trim(),
@@ -307,26 +255,14 @@ public class ClientSubmit implements SubmitStrategy {
                     "Invalid end time. Use the format hh:mm AM/PM."
             );
         }
-
-        LocalDateTime startDateTime =
-                LocalDateTime.of(
-                        availabilityDate,
-                        parsedStartTime
-                );
-
-        LocalDateTime endDateTime =
-                LocalDateTime.of(
-                        deadlineDate,
-                        parsedEndTime
-                );
-
+        LocalDateTime startDateTime = LocalDateTime.of(availabilityDate, parsedStartTime);
+        LocalDateTime endDateTime = LocalDateTime.of(deadlineDate, parsedEndTime);
         if (!endDateTime.isAfter(startDateTime)) {
             throw new Exception(
                     "End date and time must be after start date and time."
             );
         }
     }
-
     // Check whether a value is empty.
     private boolean isEmpty(String value) {
         return value == null || value.trim().isEmpty();
