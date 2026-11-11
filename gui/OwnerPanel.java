@@ -33,8 +33,8 @@ public class OwnerPanel extends JPanel {
      private final JTextField make = new JTextField(22);
     private final JTextField model = new JTextField(22);
     private final JTextField year = new JTextField(22);
-      private final JTextField arrival = new JTextField(22);
-      private final JTextField departure = new JTextField(22);
+    private final DateTimePicker arrival = new DateTimePicker();
+    private final DateTimePicker departure = new DateTimePicker();
     private final JTextField computePower = new JTextField(22);
     private final DefaultTableModel vehicleRows = new DefaultTableModel(
             new String[] {"Vehicle ID", "Owner", "Car model", "Current status"}, 0) {
@@ -57,15 +57,15 @@ public class OwnerPanel extends JPanel {
         FormRows.addRow(fields, 1, "Make *", make);
         FormRows.addRow(fields, 2, "Model *", model);
            FormRows.addRow(fields, 3, "Year *", year);
-        FormRows.addRow(fields, 4, "Arrival (MM-dd-yyyy HH:mm) *", arrival);
-           FormRows.addRow(fields, 5, "Estimated departure (MM-dd-yyyy HH:mm) *", departure);
+        FormRows.addRow(fields, 4, "Arrival date and time *", arrival);
+        FormRows.addRow(fields, 5, "Estimated departure date and time *", departure);
         FormRows.addRow(fields, 6, "Compute power (units) *", computePower);
         registration.add(fields, BorderLayout.CENTER);
 
         //Button and hint go at the bottom
         JButton submit = new JButton("Register car");
            submit.addActionListener(event -> registerCar());
-           registration.add(FormRows.footer("Times use your computer's local time. * Required", submit), BorderLayout.SOUTH);
+           registration.add(FormRows.footer("Choose a date and time using your computer's local time. * Required", submit), BorderLayout.SOUTH);
         add(registration, BorderLayout.NORTH);
 
         JPanel listPanel = new JPanel(new BorderLayout(0, 8));
@@ -112,21 +112,19 @@ public class OwnerPanel extends JPanel {
            String carMake = make.getText().trim();
         String carModel = model.getText().trim();
            String carYear = year.getText().trim();
-        String arrivalText = arrival.getText().trim();
-         String departureText = departure.getText().trim();
+        LocalDateTime arrivalTime = arrival.getSelectedDateTime();
+        LocalDateTime departureTime = departure.getSelectedDateTime();
         String powerText = computePower.getText().trim();
         
         //Make sure nothing is blank
             if (owner.isEmpty() || carMake.isEmpty() || carModel.isEmpty() || carYear.isEmpty()
-                || arrivalText.isEmpty() || departureText.isEmpty() || powerText.isEmpty()) {
+                || arrivalTime == null || departureTime == null || powerText.isEmpty()) {
                  showError("Complete every required vehicle field.");
             return;
             }
 
         try {
             //Check the dates are real and make sense
-            LocalDateTime arrivalTime = LocalDateTime.parse(arrivalText, TIME_FORMAT);
-             LocalDateTime departureTime = LocalDateTime.parse(departureText, TIME_FORMAT);
                if (!departureTime.isAfter(arrivalTime) || !departureTime.isAfter(LocalDateTime.now())) {
                 throw new IllegalArgumentException("Departure must be after arrival and in the future.");
                }
@@ -140,8 +138,7 @@ public class OwnerPanel extends JPanel {
                 showError("Compute power must be a positive number.");
                 return;
             }
-            if (containsBreak(owner) || containsBreak(carMake) || containsBreak(carModel)
-                    || containsBreak(arrivalText) || containsBreak(departureText)) {
+            if (containsBreak(owner) || containsBreak(carMake) || containsBreak(carModel)) {
                 showError("Vehicle fields cannot contain | or line breaks.");
                 return;
             }
@@ -159,8 +156,6 @@ public class OwnerPanel extends JPanel {
             refreshVehicles();
             JOptionPane.showMessageDialog(this, "Car registered. Vehicle ID: " + vehicleId);
             clearFields();
-        } catch (DateTimeParseException ex) {
-            showError("Use MM-dd-yyyy HH:mm for arrival and departure, for example 10-01-2026 09:30.");
         } catch (NumberFormatException ex) {
             showError("Year and compute power must be numbers.");
         } catch (IllegalArgumentException ex) {
@@ -173,8 +168,8 @@ public class OwnerPanel extends JPanel {
         make.setText("");
           model.setText("");
         year.setText("");
-              arrival.setText("");
-        departure.setText("");
+        arrival.clearSelection();
+        departure.clearSelection();
         computePower.setText("");
        }
 

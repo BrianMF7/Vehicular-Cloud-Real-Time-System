@@ -8,9 +8,9 @@ import java.awt.Insets;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 
 //One layout for the car form and the job form.
 public class FormRows {
@@ -25,7 +25,7 @@ public class FormRows {
         return panel;
     }
 
-    public static void addRow(JPanel panel, int row, String label, JTextField field) {
+    public static void addRow(JPanel panel, int row, String label, JComponent field) {
         //Label stays on the left and does not stretch.
         GridBagConstraints labelCell = new GridBagConstraints();
         labelCell.gridx = 0;
