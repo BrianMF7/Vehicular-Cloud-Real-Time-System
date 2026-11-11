@@ -62,6 +62,9 @@ public class MainFrame extends JFrame implements SaveListener {
     
     //Login mode tracker
     private boolean isSignUpMode = false;
+    // Separate sign-in for the VC Controller. Users cannot open this screen.
+    private boolean controllerSignIn = false;
+    static final String CONTROLLER_EMAIL = "controller@vcrts.com";
     
     //User greeting label
     private JLabel userGreeting;
@@ -82,11 +85,15 @@ public class MainFrame extends JFrame implements SaveListener {
         
         //Create welcome screen (after login)
         JPanel welcomeScreen = createWelcomeScreen();
+        JPanel controllerScreen = new ControllerPanel();
         
         //Add all screens to card panel
         cardPanel.add(loginScreen, "login");
             cardPanel.add(welcomeScreen, "welcome");
         cardPanel.add(formHolder, "form");
+        cardPanel.add(controllerScreen, "controller");
+        // Create the controller account once. Sign-up does nothing if it already exists.
+        UserStorage.getInstance().signUp("VC Controller", CONTROLLER_EMAIL, "controller");
         
         //Back button
         backBar.setBorder(BorderFactory.createEmptyBorder(16, 8, 8, 8));
@@ -150,8 +157,8 @@ public class MainFrame extends JFrame implements SaveListener {
         
         cardPanel.add(Box.createRigidArea(new Dimension(0, 6)));
         
-        String subtitleText = isSignUpMode ? 
-            "Create your account" : "Please sign in to continue";
+        String subtitleText = controllerSignIn ? "Controller sign in"
+                : (isSignUpMode ? "Create your account" : "Please sign in to continue");
         JLabel subtitle = new JLabel(subtitleText);
           subtitle.setFont(defaultFont.deriveFont(Font.PLAIN, 14f));
              subtitle.setForeground(new Color(107, 114, 128));
@@ -161,7 +168,7 @@ public class MainFrame extends JFrame implements SaveListener {
         cardPanel.add(Box.createRigidArea(new Dimension(0, 24)));
         
         //Name field, sign up
-        if (isSignUpMode) {
+        if (isSignUpMode && !controllerSignIn) {
             JLabel nameLabel = new JLabel("Name");
                nameLabel.setFont(defaultFont.deriveFont(Font.BOLD, 13f));
               nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -223,7 +230,7 @@ public class MainFrame extends JFrame implements SaveListener {
         cardPanel.add(Box.createRigidArea(new Dimension(0, 12)));
         
         //Confirm Password field - only for Sign Up
-        if (isSignUpMode) {
+        if (isSignUpMode && !controllerSignIn) {
             JLabel confirmLabel = new JLabel("Confirm Password");
             confirmLabel.setFont(defaultFont.deriveFont(Font.BOLD, 13f));
             confirmLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -247,7 +254,7 @@ public class MainFrame extends JFrame implements SaveListener {
         cardPanel.add(Box.createRigidArea(new Dimension(0, 12)));
         
         //Main action button (Sign In or Sign Up)
-        String buttonText = isSignUpMode ? "Sign Up" : "Sign In";
+        String buttonText = isSignUpMode && !controllerSignIn ? "Sign Up" : "Sign In";
         JButton mainButton = new JButton(buttonText);
         mainButton.setPreferredSize(new Dimension(340, 44));
         mainButton.setMaximumSize(new Dimension(340, 44));
@@ -264,8 +271,10 @@ public class MainFrame extends JFrame implements SaveListener {
         //Action listener
         mainButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                if (isSignUpMode) {
+                if (isSignUpMode && !controllerSignIn) {
                     handleSignUp();
+                } else if (controllerSignIn) {
+                    handleControllerSignIn();
                 } else {
                     handleSignIn();
                 }
@@ -279,13 +288,14 @@ public class MainFrame extends JFrame implements SaveListener {
         togglePanel.setOpaque(false);
         togglePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        String linkText = isSignUpMode ? 
-            "Already have an account? " : "Don't have an account? ";
+        String linkText = controllerSignIn ? "Not the controller? "
+                : (isSignUpMode ? "Already have an account? " : "Don't have an account? ");
         JLabel toggleText = new JLabel(linkText);
         toggleText.setFont(defaultFont.deriveFont(Font.PLAIN, 13f));
         toggleText.setForeground(new Color(107, 114, 128));
         
-        String linkButtonText = isSignUpMode ? "Sign In" : "Sign Up";
+        String linkButtonText = controllerSignIn ? "User sign in"
+                : (isSignUpMode ? "Sign In" : "Sign Up");
         JButton toggleLink = new JButton(linkButtonText);
         toggleLink.setFont(defaultFont.deriveFont(Font.BOLD, 13f));
         toggleLink.setForeground(new Color(59, 130, 246));
@@ -296,13 +306,39 @@ public class MainFrame extends JFrame implements SaveListener {
         
         toggleLink.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                toggleLoginMode();
+                if (controllerSignIn) {
+                    controllerSignIn = false;
+                    isSignUpMode = false;
+                    clearLoginFields();
+                    refreshLoginScreen();
+                } else {
+                    toggleLoginMode();
+                }
             }
         });
         
         togglePanel.add(toggleText);
         togglePanel.add(toggleLink);
         cardPanel.add(togglePanel);
+
+        if (!controllerSignIn) {
+            cardPanel.add(Box.createRigidArea(new Dimension(0, 8)));
+            JButton controllerButton = new JButton("Controller sign in");
+            controllerButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+            controllerButton.setBorder(null);
+            controllerButton.setContentAreaFilled(false);
+            controllerButton.setForeground(new Color(59, 130, 246));
+            controllerButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            controllerButton.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                    controllerSignIn = true;
+                    isSignUpMode = false;
+                    clearLoginFields();
+                    refreshLoginScreen();
+                }
+            });
+            cardPanel.add(controllerButton);
+        }
         
         return cardPanel;
     }
@@ -476,7 +512,11 @@ public class MainFrame extends JFrame implements SaveListener {
                JOptionPane.showMessageDialog(this, "Welcome back, " + currentUser + "!", 
                 "Sign In Successful", JOptionPane.INFORMATION_MESSAGE);
                   clearLoginFields();
-            showWelcome();
+            if (isController()) {
+                showController();
+            } else {
+                showWelcome();
+            }
         } else {
             //Failed
             JOptionPane.showMessageDialog(this, "Invalid email or password.\nPlease try again or sign up.", 
@@ -531,6 +571,52 @@ public class MainFrame extends JFrame implements SaveListener {
         }
     }
     
+    // Dedicated controller sign-in. A normal user account cannot open this screen.
+    private void handleControllerSignIn() {
+        String email = emailField.getText().trim();
+        String password = new String(passwordField.getPassword()).trim();
+        if (email.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter email and password.",
+                    "Missing Information", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        User user = UserStorage.getInstance().signIn(email, password);
+        if (user == null || !CONTROLLER_EMAIL.equals(user.getEmail())) {
+            JOptionPane.showMessageDialog(this, "Controller sign-in failed.",
+                    "Sign In Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        currentUser = user.getName();
+        currentEmail = user.getEmail();
+        clearLoginFields();
+        showController();
+    }
+
+    private boolean isController() {
+        return CONTROLLER_EMAIL.equals(currentEmail);
+    }
+
+    private void showController() {
+        header.setVisible(false);
+        backBar.setVisible(false);
+        cards.show(cardPanel, "controller");
+        Component[] screens = cardPanel.getComponents();
+        for (int i = 0; i < screens.length; i++) {
+            if (screens[i] instanceof ControllerPanel) {
+                ((ControllerPanel) screens[i]).refresh();
+            }
+        }
+        revalidate();
+        repaint();
+    }
+
+    // The controller screen calls this. It uses the same sign-out as the welcome screen.
+    static void signOutFromScreen() {
+        if (active != null) {
+            active.handleSignOut();
+        }
+    }
+
     //Handle sign out
     private void handleSignOut() {
         int choice = JOptionPane.showConfirmDialog(this, 
