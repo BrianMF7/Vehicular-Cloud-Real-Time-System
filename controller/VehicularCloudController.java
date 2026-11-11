@@ -260,7 +260,6 @@ public class VehicularCloudController {
     }
 
     // Save the job once, including the signed-in account. Returns false if the log write fails.
-
     public boolean submitJob(Job job, String username, String email) {
         if (job == null || isBlank(job.getJobId())) {
             return false;
@@ -272,28 +271,24 @@ public class VehicularCloudController {
             return false;
         }
         String jobId = job.getJobId();
-
-        // Same field order RecordParser expects: duration, deadline, and priority
-        // stay in their old spots, and start/end times are appended at the end.
         if (!saveLine("JOB|" + safe(username)
                 + "|" + safe(email)
                 + "|" + safe(job.getClientId())
                 + "|" + safe(jobId)
                 + "|" + safe(job.getAvailability())
+                + "|" + safe(job.getStartTime())
                 + "|" + job.getEstimatedDuration()
                 + "|" + safe(job.getDeadline())
+                + "|" + safe(job.getEndTime())
                 + "|" + job.getPriority()
-                + "|" + safe(job.getStartTime())
-                + "|" + safe(job.getEndTime()))) {
+                + "|")) {
 
             return false;
         }
-
         jobs.add(job);
         usernameByJobId.put(jobId, safe(username));
         emailByJobId.put(jobId, safe(email));
         refreshSchedule();
-
         return true;
     }
 
