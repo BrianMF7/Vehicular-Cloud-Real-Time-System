@@ -9,16 +9,14 @@ import scheduling.ScheduleResult;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.text.SimpleDateFormat;
 import java.util.Locale;
-import com.toedter.calendar.JDateChooser;
 
 public class ClientPanel extends JPanel {
 
     private final JTextField clientIdField = new JTextField(22);
     private final JTextField jobIdField = new JTextField(22);
 
-    private final JDateChooser jobAvailabilityPicker = new JDateChooser();
+    private final JTextField jobAvailabilityField = new JTextField(12);
 
     private final JSpinner startHour =
             new JSpinner(new SpinnerNumberModel(9, 1, 12, 1));
@@ -31,7 +29,7 @@ public class ClientPanel extends JPanel {
 
     private final JTextField jobDurationField = new JTextField(22);
 
-    private final JDateChooser jobDeadlinePicker = new JDateChooser();
+    private final JTextField jobDeadlineField = new JTextField(12);
 
     private final JSpinner endHour =
             new JSpinner(new SpinnerNumberModel(5, 1, 12, 1));
@@ -72,9 +70,6 @@ public class ClientPanel extends JPanel {
         configureAmPm(startAmPm);
         configureAmPm(endAmPm);
 
-        jobAvailabilityPicker.setDateFormatString("MM-dd-yyyy");
-        jobDeadlinePicker.setDateFormatString("MM-dd-yyyy");
-
         // Set the initial time selections.
         startAmPm.setSelectedItem("AM");
         endAmPm.setSelectedItem("PM");
@@ -105,7 +100,7 @@ public class ClientPanel extends JPanel {
         JPanel availabilityRow = new JPanel(new BorderLayout(10, 0));
 
         availabilityRow.add(
-                jobAvailabilityPicker,
+                jobAvailabilityField,
                 BorderLayout.CENTER
         );
 
@@ -127,7 +122,7 @@ public class ClientPanel extends JPanel {
         JPanel deadlineRow = new JPanel(new BorderLayout(10, 0));
 
         deadlineRow.add(
-                jobDeadlinePicker,
+                jobDeadlineField,
                 BorderLayout.CENTER
         );
 
@@ -150,7 +145,7 @@ public class ClientPanel extends JPanel {
         FormRows.addRow(fields, 1, "Job ID *", jobIdField);
 
         FormRows.addRow(
-                fields, 2, "Job availability *", availabilityRow
+                fields, 2, "Job availability (MM-dd-yyyy) *", availabilityRow
         );
 
         FormRows.addRow(
@@ -158,7 +153,7 @@ public class ClientPanel extends JPanel {
         );
 
         FormRows.addRow(
-                fields, 4, "Job deadline *", deadlineRow
+                fields, 4, "Job deadline (MM-dd-yyyy) *", deadlineRow
         );
 
         FormRows.addRow(
@@ -278,9 +273,9 @@ public class ClientPanel extends JPanel {
         ClientSubmit submit = new ClientSubmit(
                 clientIdField.getText(),
                 jobIdField.getText(),
-                formatDate(jobAvailabilityPicker),
+                jobAvailabilityField.getText(),
                 jobDurationField.getText(),
-                formatDate(jobDeadlinePicker),
+                jobDeadlineField.getText(),
                 priorityField.getText(),
                 formatTime(startHour, startMinute, startAmPm),
                 formatTime(endHour, endMinute, endAmPm)
@@ -317,9 +312,9 @@ public class ClientPanel extends JPanel {
         clientIdField.setText("");
         jobIdField.setText("");
 
-        jobAvailabilityPicker.setDate(null);
+        jobAvailabilityField.setText("");
         jobDurationField.setText("");
-        jobDeadlinePicker.setDate(null);
+        jobDeadlineField.setText("");
 
         priorityField.setText("");
 
@@ -354,14 +349,4 @@ public class ClientPanel extends JPanel {
         );
     }
 
-    // Format the selected date.
-    private static String formatDate(JDateChooser picker) {
-
-        if (picker.getDate() == null) {
-            return "";
-        }
-
-        return new SimpleDateFormat("MM-dd-yyyy")
-                .format(picker.getDate());
-    }
 }
