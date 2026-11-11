@@ -2,9 +2,6 @@
 
 package gui;
 
-import controller.VehicularCloudController;
-import model.Job;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -13,6 +10,9 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.Locale;
+
+import controller.VehicularCloudController;
+import model.Job;
 
 public class ClientSubmit implements SubmitStrategy {
 
@@ -86,18 +86,7 @@ public class ClientSubmit implements SubmitStrategy {
     // Same save path with a supplied controller for testing.
     public void submit(VehicularCloudController controller) throws Exception {
 
-        validateFields();
-
-        Job job = new Job(
-                trim(clientId),
-                trim(jobId),
-                Integer.parseInt(duration.trim()),
-                trim(deadline),
-                Integer.parseInt(priority.trim()),
-                trim(jobAvailability),
-                trim(startTime),
-                trim(endTime)
-        );
+        Job job = createJob();
 
         if (!controller.submitJob(
                 job,
@@ -111,6 +100,21 @@ public class ClientSubmit implements SubmitStrategy {
             );
         }
     }
+
+      // Check the form and build the job. This does not write the file.
+    public Job createJob() throws Exception {
+        validateFields();
+            return new Job(
+                    trim(clientId),
+                trim(jobId),
+                Integer.parseInt(duration.trim()),
+                   trim(deadline),
+                Integer.parseInt(priority.trim()),
+                  trim(jobAvailability),
+                trim(startTime),
+                trim(endTime)
+        );
+       }
 
     // Check whether the job ID already exists.
     private boolean jobAlreadySaved(

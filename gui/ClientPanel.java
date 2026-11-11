@@ -1,24 +1,38 @@
 
 package gui;
 
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.util.Locale;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.table.DefaultTableModel;
+
 import controller.VehicularCloudController;
 import model.Job;
+import model.SubmissionRequest;
 import scheduling.ScheduleEntry;
 import scheduling.ScheduleResult;
-
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import java.awt.*;
-import java.text.SimpleDateFormat;
-import java.util.Locale;
-import com.toedter.calendar.JDateChooser;
 
 public class ClientPanel extends JPanel {
 
     private final JTextField clientIdField = new JTextField(22);
     private final JTextField jobIdField = new JTextField(22);
 
-    private final JDateChooser jobAvailabilityPicker = new JDateChooser();
+    private final JTextField jobAvailabilityField = new JTextField(12);
 
     private final JSpinner startHour =
             new JSpinner(new SpinnerNumberModel(9, 1, 12, 1));
@@ -31,7 +45,7 @@ public class ClientPanel extends JPanel {
 
     private final JTextField jobDurationField = new JTextField(22);
 
-    private final JDateChooser jobDeadlinePicker = new JDateChooser();
+    private final JTextField jobDeadlineField = new JTextField(12);
 
     private final JSpinner endHour =
             new JSpinner(new SpinnerNumberModel(5, 1, 12, 1));
@@ -50,8 +64,7 @@ public class ClientPanel extends JPanel {
                     "Client ID",
                     "Duration (days)",
                     "Priority",
-                    "Waiting time (days)",
-                    "Completion time (days)"
+                    "Status"
             }, 0) {
 
         @Override
@@ -62,8 +75,8 @@ public class ClientPanel extends JPanel {
 
     private final JTable scheduleTable = new JTable(tableModel);
 
-    private final JLabel averageWaitingTime =
-            new JLabel("Average waiting time: —");
+    private final JLabel jobStatus =
+            new JLabel("Your jobs only. Completion time is shown to the controller.");
 
     public ClientPanel() {
 
@@ -71,9 +84,6 @@ public class ClientPanel extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         configureAmPm(startAmPm);
         configureAmPm(endAmPm);
-
-        jobAvailabilityPicker.setDateFormatString("MM-dd-yyyy");
-        jobDeadlinePicker.setDateFormatString("MM-dd-yyyy");
 
         // Set the initial time selections.
         startAmPm.setSelectedItem("AM");
@@ -105,7 +115,7 @@ public class ClientPanel extends JPanel {
         JPanel availabilityRow = new JPanel(new BorderLayout(10, 0));
 
         availabilityRow.add(
-                jobAvailabilityPicker,
+                jobAvailabilityField,
                 BorderLayout.CENTER
         );
 
@@ -127,7 +137,7 @@ public class ClientPanel extends JPanel {
         JPanel deadlineRow = new JPanel(new BorderLayout(10, 0));
 
         deadlineRow.add(
-                jobDeadlinePicker,
+                jobDeadlineField,
                 BorderLayout.CENTER
         );
 
@@ -150,7 +160,7 @@ public class ClientPanel extends JPanel {
         FormRows.addRow(fields, 1, "Job ID *", jobIdField);
 
         FormRows.addRow(
-                fields, 2, "Job availability *", availabilityRow
+                fields, 2, "Job availability (MM-dd-yyyy) *", availabilityRow
         );
 
         FormRows.addRow(
@@ -158,7 +168,7 @@ public class ClientPanel extends JPanel {
         );
 
         FormRows.addRow(
-                fields, 4, "Job deadline *", deadlineRow
+                fields, 4, "Job deadline (MM-dd-yyyy) *", deadlineRow
         );
 
         FormRows.addRow(
@@ -217,7 +227,7 @@ public class ClientPanel extends JPanel {
 
         schedulePanel.add(scheduleHeading, BorderLayout.NORTH);
         schedulePanel.add(tableScroll, BorderLayout.CENTER);
-        schedulePanel.add(averageWaitingTime, BorderLayout.SOUTH);
+        schedulePanel.add(jobStatus, BorderLayout.SOUTH);
 
         // Main content.
         JPanel content = new JPanel(new BorderLayout(0, 16));
@@ -233,34 +243,28 @@ public class ClientPanel extends JPanel {
 
         try {
 
-            ScheduleResult result =
-                    VehicularCloudController.getInstance().scheduleJobs();
+            VehicularCloudController controller = VehicularCloudController.getInstance();
+            ScheduleResult result = controller.scheduleJobs();
+            String mine = MainFrame.getCurrentEmail();
 
             tableModel.setRowCount(0);
+            addMyWaitingJobs(mine);
 
             for (ScheduleEntry entry : result.getEntries()) {
-
                 Job job = entry.getJob();
-
+                String ownerEmail = controller.getJobAccountEmail(job.getJobId());
+                // A user only sees jobs saved under their own email.
+                if (!mine.isEmpty() && !mine.equalsIgnoreCase(ownerEmail)) {
+                    continue;
+                }
                 tableModel.addRow(new Object[]{
                         job.getJobId(),
                         job.getClientId(),
                         job.getEstimatedDuration(),
                         job.getPriority(),
-                        entry.getWaitingTime(),
-                        entry.getCompletionTime()
+                        "Saved"
                 });
             }
-
-            averageWaitingTime.setText(
-                    result.getEntries().isEmpty()
-                            ? "Average waiting time: —"
-                            : String.format(
-                            Locale.US,
-                            "Average waiting time: %.2f days",
-                            result.getAverageWaitingTime()
-                    )
-            );
 
         } catch (RuntimeException ex) {
 
@@ -273,27 +277,29 @@ public class ClientPanel extends JPanel {
         }
     }
 
-    // Submit a job.
+    // Send the job to the controller. It is not saved until the controller accepts it.
     private void submitJob() {
         ClientSubmit submit = new ClientSubmit(
                 clientIdField.getText(),
                 jobIdField.getText(),
-                formatDate(jobAvailabilityPicker),
+                jobAvailabilityField.getText(),
                 jobDurationField.getText(),
-                formatDate(jobDeadlinePicker),
+                jobDeadlineField.getText(),
                 priorityField.getText(),
                 formatTime(startHour, startMinute, startAmPm),
                 formatTime(endHour, endMinute, endAmPm)
         );
 
         try {
-
-            submit.submit();
+            Job job = submit.createJob();
+            SubmissionRequest request = SubmissionRequest.forJob(
+                    job, MainFrame.getCurrentUser(), MainFrame.getCurrentEmail());
+            ReviewQueue.get().add(request);
 
             JOptionPane.showMessageDialog(
                     this,
-                    "Job saved.",
-                    "Success",
+                    "Request received. Waiting for the controller to accept or reject it.",
+                    "Request sent",
                     JOptionPane.INFORMATION_MESSAGE
             );
 
@@ -311,15 +317,37 @@ public class ClientPanel extends JPanel {
         }
     }
 
+    // Waiting requests for this user. Completion time is not shown here.
+    private void addMyWaitingJobs(String mine) {
+                java.util.List<SubmissionRequest> waiting = ReviewQueue.get().list();
+        for (int i = 0; i < waiting.size(); i++) {
+              SubmissionRequest request = waiting.get(i);
+               if (request.getJob() == null) {
+                continue;
+               }
+                 if (!mine.isEmpty() && !mine.equalsIgnoreCase(request.getRequesterEmail())) {
+                continue;
+            }
+            Job job = request.getJob();
+            tableModel.addRow(new Object[]{
+                      job.getJobId(),
+                    job.getClientId(),
+                       job.getEstimatedDuration(),
+                    job.getPriority(),
+                    "Waiting"
+              });
+        }
+            }
+
     // Reset the form.
     private void clearFields() {
 
         clientIdField.setText("");
         jobIdField.setText("");
 
-        jobAvailabilityPicker.setDate(null);
+        jobAvailabilityField.setText("");
         jobDurationField.setText("");
-        jobDeadlinePicker.setDate(null);
+        jobDeadlineField.setText("");
 
         priorityField.setText("");
 
@@ -354,14 +382,4 @@ public class ClientPanel extends JPanel {
         );
     }
 
-    // Format the selected date.
-    private static String formatDate(JDateChooser picker) {
-
-        if (picker.getDate() == null) {
-            return "";
-        }
-
-        return new SimpleDateFormat("MM-dd-yyyy")
-                .format(picker.getDate());
-    }
 }

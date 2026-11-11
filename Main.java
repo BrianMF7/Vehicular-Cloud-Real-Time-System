@@ -1,7 +1,8 @@
-import gui.MainFrame;
-
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+
+import gui.MainFrame;
+import gui.ReviewQueue;
 
 public class Main {
     // This is where the program starts. It opens the main window.
@@ -14,7 +15,10 @@ public class Main {
             System.err.println("Could not use the system look and feel.");
         }
 
-        // Open the window when Java is ready to draw it.
+        //One server for the review screen and for network clients.
+           ReviewQueue.start();
+
+        //Open the window when Java is ready to draw it.
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 MainFrame frame = new MainFrame();
