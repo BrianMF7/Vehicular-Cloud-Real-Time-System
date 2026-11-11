@@ -4,6 +4,10 @@ import model.User;
 import storage.UserStorage;
 
 import java.awt.BorderLayout;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Locale;
 import java.awt.CardLayout;
  import java.awt.Color;
   import java.awt.Component;
@@ -64,7 +68,6 @@ public class MainFrame extends JFrame implements SaveListener {
     private boolean isSignUpMode = false;
     // Separate sign-in for the VC Controller. Users cannot open this screen.
     private boolean controllerSignIn = false;
-    static final String CONTROLLER_EMAIL = "controller@vcrts.com";
     
     //User greeting label
     private JLabel userGreeting;
@@ -92,8 +95,6 @@ public class MainFrame extends JFrame implements SaveListener {
             cardPanel.add(welcomeScreen, "welcome");
         cardPanel.add(formHolder, "form");
         cardPanel.add(controllerScreen, "controller");
-        // Create the controller account once. Sign-up does nothing if it already exists.
-        UserStorage.getInstance().signUp("VC Controller", CONTROLLER_EMAIL, "controller");
         
         //Back button
         backBar.setBorder(BorderFactory.createEmptyBorder(16, 8, 8, 8));
@@ -157,8 +158,14 @@ public class MainFrame extends JFrame implements SaveListener {
         
         cardPanel.add(Box.createRigidArea(new Dimension(0, 6)));
         
-        String subtitleText = controllerSignIn ? "Controller sign in"
-                : (isSignUpMode ? "Create your account" : "Please sign in to continue");
+        String subtitleText = "Please sign in to continue";
+        if (controllerSignIn && controllerEmail() == null) {
+            subtitleText = "Create the controller account";
+        } else if (controllerSignIn) {
+            subtitleText = "Controller sign in";
+        } else if (isSignUpMode) {
+            subtitleText = "Create your account";
+        }
         JLabel subtitle = new JLabel(subtitleText);
           subtitle.setFont(defaultFont.deriveFont(Font.PLAIN, 14f));
              subtitle.setForeground(new Color(107, 114, 128));
@@ -168,7 +175,7 @@ public class MainFrame extends JFrame implements SaveListener {
         cardPanel.add(Box.createRigidArea(new Dimension(0, 24)));
         
         //Name field, sign up
-        if (isSignUpMode && !controllerSignIn) {
+        if (showAccountFields()) {
             JLabel nameLabel = new JLabel("Name");
                nameLabel.setFont(defaultFont.deriveFont(Font.BOLD, 13f));
               nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -230,7 +237,7 @@ public class MainFrame extends JFrame implements SaveListener {
         cardPanel.add(Box.createRigidArea(new Dimension(0, 12)));
         
         //Confirm Password field - only for Sign Up
-        if (isSignUpMode && !controllerSignIn) {
+        if (showAccountFields()) {
             JLabel confirmLabel = new JLabel("Confirm Password");
             confirmLabel.setFont(defaultFont.deriveFont(Font.BOLD, 13f));
             confirmLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -254,7 +261,12 @@ public class MainFrame extends JFrame implements SaveListener {
         cardPanel.add(Box.createRigidArea(new Dimension(0, 12)));
         
         //Main action button (Sign In or Sign Up)
-        String buttonText = isSignUpMode && !controllerSignIn ? "Sign Up" : "Sign In";
+        String buttonText = "Sign In";
+                     if (controllerSignIn && controllerEmail() == null) {
+            buttonText = "Create controller account";
+        } else if (isSignUpMode && !controllerSignIn) {
+              buttonText = "Sign Up";
+                    }
         JButton mainButton = new JButton(buttonText);
         mainButton.setPreferredSize(new Dimension(340, 44));
         mainButton.setMaximumSize(new Dimension(340, 44));
@@ -271,10 +283,12 @@ public class MainFrame extends JFrame implements SaveListener {
         //Action listener
         mainButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                if (isSignUpMode && !controllerSignIn) {
-                    handleSignUp();
+                if (controllerSignIn && controllerEmail() == null) {
+                    handleControllerSetup();
                 } else if (controllerSignIn) {
                     handleControllerSignIn();
+                             } else if (isSignUpMode) {
+                     handleSignUp();
                 } else {
                     handleSignIn();
                 }
@@ -581,7 +595,8 @@ public class MainFrame extends JFrame implements SaveListener {
             return;
         }
         User user = UserStorage.getInstance().signIn(email, password);
-        if (user == null || !CONTROLLER_EMAIL.equals(user.getEmail())) {
+        String savedEmail = controllerEmail();
+        if (user == null || savedEmail == null || !savedEmail.equals(user.getEmail())) {
             JOptionPane.showMessageDialog(this, "Controller sign-in failed.",
                     "Sign In Failed", JOptionPane.ERROR_MESSAGE);
             return;
@@ -593,7 +608,64 @@ public class MainFrame extends JFrame implements SaveListener {
     }
 
     private boolean isController() {
-        return CONTROLLER_EMAIL.equals(currentEmail);
+        String savedEmail = controllerEmail();
+        return savedEmail != null && savedEmail.equals(currentEmail);
+    }
+
+    // True on user sign-up and on the one-time controller setup.
+    private boolean showAccountFields() {
+        return (isSignUpMode && !controllerSignIn) || (controllerSignIn && controllerEmail() == null);
+    }
+
+    // The controller chooses this account the first time. The password is not stored here.
+    private String controllerEmail() {
+        try {
+            if (!Files.exists(Paths.get("controller.txt"))) {
+                return null;
+            }
+            String email = Files.readString(Paths.get("controller.txt")).trim().toLowerCase(Locale.ROOT);
+            return email.isEmpty() ? null : email;
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
+    private void handleControllerSetup() {
+        String name = nameField.getText().trim();
+        String email = emailField.getText().trim();
+        String password = new String(passwordField.getPassword()).trim();
+        String confirmPassword = new String(confirmPasswordField.getPassword()).trim();
+        if (name.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please fill in all fields.",
+                    "Missing Information", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (!password.equals(confirmPassword)) {
+            JOptionPane.showMessageDialog(this, "Passwords do not match.",
+                    "Password Mismatch", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (password.length() < 4) {
+            JOptionPane.showMessageDialog(this, "Password must be at least 4 characters long.",
+                    "Weak Password", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (!UserStorage.getInstance().signUp(name, email, password)) {
+            JOptionPane.showMessageDialog(this, "That email is already registered.",
+                    "Setup Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            Files.writeString(Paths.get("controller.txt"), email.toLowerCase(Locale.ROOT));
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "Could not save the controller account.",
+                    "Setup Failed", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        currentUser = name;
+        currentEmail = email.toLowerCase(Locale.ROOT);
+        clearLoginFields();
+        showController();
     }
 
     private void showController() {

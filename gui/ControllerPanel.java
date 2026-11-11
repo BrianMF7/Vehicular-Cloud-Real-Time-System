@@ -17,7 +17,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 
-import controller.PendingRequestRegistry;
 import controller.VehicularCloudController;
 import model.Job;
 import model.RequestType;
@@ -108,15 +107,7 @@ public class ControllerPanel extends JPanel {
             return;
         }
         String requestId = String.valueOf(pendingTable.getValueAt(row, 0));
-        PendingRequestRegistry.PendingRequest pending = ReviewQueue.get().take(requestId);
-        if (pending == null) {
-            JOptionPane.showMessageDialog(this, "That request is no longer waiting.");
-            refresh();
-            return;
-        }
-        ServerResponse response = VehicularCloudController.getInstance()
-                .decideRequest(pending.getRequest(), accept);
-        pending.complete(response);
+        ServerResponse response = ReviewQueue.decide(requestId, accept);
         JOptionPane.showMessageDialog(this, response.getMessage());
         refresh();
     }
