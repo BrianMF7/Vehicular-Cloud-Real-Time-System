@@ -1,4 +1,3 @@
-
 package gui;
 
 import java.awt.BorderLayout;
@@ -217,35 +216,42 @@ public class ClientPanel extends JPanel {
                 try {
                     ServerResponse decision = client.submit(request, acknowledgement ->
                             SwingUtilities.invokeLater(() -> {
-                                jobStatus.setText("ACKNOWLEDGED: " + acknowledgement.getMessage());
+                                String acknowledgementMessage = "ACKNOWLEDGED: " + acknowledgement.getMessage();
+                                // Update the message below the schedule.
+                                jobStatus.setText(acknowledgementMessage);
                                 // Show the submitted job while the controller reviews it.
                                 updateJobRow(job, "PENDING");
+                                // Display an acknowledgement popup.
+                                JOptionPane.showMessageDialog(
+                                        this,
+                                        acknowledgementMessage,
+                                        "Job Submission Acknowledged",
+                                        JOptionPane.INFORMATION_MESSAGE
+                                );
                             })
                     );
                     // Display the final controller decision.
                     SwingUtilities.invokeLater(() -> {
                         String title;
                         String message;
-
                         if (decision.getStatus() == RequestStatus.ACCEPTED) {
                             title = "Job Accepted";
                             message = "Job ID: " + job.getJobId()
                                     + "\nStatus: ACCEPTED"
                                     + "\n\n" + decision.getMessage();
-
                             clearFields();
                             refreshSchedule();
                             updateJobRow(job, "ACCEPTED");
-
-                        } else if (decision.getStatus() == RequestStatus.REJECTED) {
+                        }
+                        else if (decision.getStatus() == RequestStatus.REJECTED) {
                         title = "Job Rejected";
                         message = "Job ID: " + job.getJobId()
                                 + "\nStatus: REJECTED"
                                 + "\n\n" + decision.getMessage();
 
                         updateJobRow(job, "REJECTED");
-
-                        } else {
+                        }
+                        else {
                             title = "Submission Error";
                             message = decision.getMessage();
                         }
@@ -259,6 +265,8 @@ public class ClientPanel extends JPanel {
                     });
 
                 } catch (Exception ex) {
+                    System.err.println("Client submission error:");
+                    ex.printStackTrace();
                     SwingUtilities.invokeLater(() -> {
                         jobStatus.setText("Could not communicate with controller: " + ex.getMessage());
                         JOptionPane.showMessageDialog(

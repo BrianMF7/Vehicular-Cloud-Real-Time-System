@@ -2,18 +2,17 @@ package gui;
 
 import model.User;
 import storage.UserStorage;
-
 import java.awt.BorderLayout;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Locale;
 import java.awt.CardLayout;
- import java.awt.Color;
-  import java.awt.Component;
+import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-   import java.awt.FlowLayout;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -21,7 +20,6 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -35,44 +33,37 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import java.util.List;
 import javax.swing.SwingUtilities;
+import gui.ReviewQueue;
+
 //Main window with login and app screens
 public class MainFrame extends JFrame implements SaveListener {
-    
     //Single active frame
     private static MainFrame active;
-    
     //Card layout for switching screens
     private final CardLayout cards = new CardLayout();
     private final JPanel cardPanel = new JPanel(cards);
-    
     //Form holder for owner/client forms
     private final JPanel formHolder = new JPanel(new BorderLayout());
     private final JPanel backBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
-    private JPanel header; 
-
+    private JPanel header;
     //Labels at top
     private final JLabel stepLabel = new JLabel("Welcome");
     private final JLabel promptLabel = new JLabel("Please sign in to continue.");
-    
     //Current session info
     private String role = "";
     private String currentUser = "";
     private String currentEmail = "";
-    
     //Login fields
     private final JTextField nameField = new JTextField();
     private final JTextField emailField = new JTextField();
     private final JPasswordField passwordField = new JPasswordField();
     private final JPasswordField confirmPasswordField = new JPasswordField();
-    
     //Login mode tracker
     private boolean isSignUpMode = false;
     // Separate sign-in for the VC Controller. Users cannot open this screen.
     private boolean controllerSignIn = false;
-    
     //User greeting label
     private JLabel userGreeting;
-
     public MainFrame() {
         super("Vehicular Cloud Console");
             active = this;
@@ -83,14 +74,11 @@ public class MainFrame extends JFrame implements SaveListener {
         header.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
         header.add(stepLabel);
         header.add(promptLabel);
-        
         //Create login screen
         JPanel loginScreen = createLoginScreen();
-        
         //Create welcome screen (after login)
         JPanel welcomeScreen = createWelcomeScreen();
         JPanel controllerScreen = new ControllerPanel();
-        
         //Add all screens to card panel
         cardPanel.add(loginScreen, "login");
         cardPanel.add(welcomeScreen, "welcome");
@@ -669,6 +657,7 @@ public class MainFrame extends JFrame implements SaveListener {
     }
 
     private void showController() {
+        ReviewQueue.start();
         header.setVisible(false);
         backBar.setVisible(false);
         cards.show(cardPanel, "controller");

@@ -1,10 +1,9 @@
-
 package controller;
 
 import model.RequestStatus;
 import model.ServerResponse;
 import model.SubmissionRequest;
-
+import java.io.ObjectInputFilter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -12,12 +11,13 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.function.Consumer;
 
+
 public class ControllerClient {
     private final String host;
     private final int port;
 
     public ControllerClient() {
-        this("localhost", ControllerServer.DEFAULT_PORT);
+        this("127.0.0.1", ControllerServer.DEFAULT_PORT);
     }
     public ControllerClient(String host, int port) {
         if (host == null || host.trim().isEmpty()) {
@@ -33,10 +33,7 @@ public class ControllerClient {
      * Sends a submission and waits for the final controller decision.
      * The acknowledgement listener is called as soon as the PENDING response is received.
      */
-    public ServerResponse submit(
-            SubmissionRequest request,
-            Consumer<ServerResponse> acknowledgementListener
-    ) throws IOException {
+    public ServerResponse submit(SubmissionRequest request, Consumer<ServerResponse> acknowledgementListener) throws IOException {
         if (request == null) {
             throw new IllegalArgumentException("Submission request is required.");
         }
@@ -47,6 +44,8 @@ public class ControllerClient {
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             out.flush();
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+            // Only allow the expected server response classes.
+            in.setObjectInputFilter(ControllerClient::filterResponse);
 
             // Send the submission to the controller server.
             out.writeObject(request);
@@ -90,5 +89,28 @@ public class ControllerClient {
         if (!request.getRequestId().equals(response.getRequestId())) {
             throw new IOException("The server response does not match this submission.");
         }
+    }
+    private static ObjectInputFilter.Status filterResponse(ObjectInputFilter.FilterInfo info) {
+        // Limit the size and complexity of incoming responses.
+        if (info.depth() > 3 ||
+                info.references() > 16 ||
+                info.streamBytes() > 65536 ||
+                info.arrayLength() > 0) {
+            return ObjectInputFilter.Status.REJECTED;
+        }
+
+        Class<?> type = info.serialClass();
+
+        if (type == null) {
+            return ObjectInputFilter.Status.UNDECIDED;
+        }
+
+        if (type == ServerResponse.class ||
+                type == RequestStatus.class ||
+                type == Enum.class ||
+                type == String.class) {
+            return ObjectInputFilter.Status.ALLOWED;
+        }
+        return ObjectInputFilter.Status.REJECTED;
     }
 }
