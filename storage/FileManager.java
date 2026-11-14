@@ -54,20 +54,23 @@ public class FileManager implements RecordWriter {
                   }
     }
 
-      public synchronized void saveRecord(String record) throws Exception {
-           if (record == null || record.trim().isEmpty()) {
+    public synchronized void saveRecord(String record) throws Exception {
+        if (record == null || record.trim().isEmpty()) {
             throw new IllegalArgumentException("Record can't be empty.");
-                }
+        }
 
         String timestamp = LocalDateTime.now().format(formatter);
-             String line = timestamp + "|" + record;
+        String line = timestamp + "|" + record;
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile(), true))) {
-                  writer.write(line);
+        System.out.println("Saving record to: " + filePath.toAbsolutePath());
+
+        try (BufferedWriter writer = new BufferedWriter(
+                new FileWriter(filePath.toFile(), true))) {
+            writer.write(line);
             writer.newLine();
-              } catch (IOException ex) {
-              throw new Exception("Couldn't save: " + ex.getMessage());
-             }
+        } catch (IOException ex) {
+            throw new Exception("Couldn't save: " + ex.getMessage());
+        }
     }
     
     //Load all records from the file
@@ -125,8 +128,7 @@ public class FileManager implements RecordWriter {
     }
 
     public static final class VehicleEntry {
-        private static final DateTimeFormatter VEHICLE_TIME = DateTimeFormatter
-                .ofPattern("MM-dd-uuuu HH:mm").withResolverStyle(ResolverStyle.STRICT);
+        private static final DateTimeFormatter VEHICLE_TIME = DateTimeFormatter.ofPattern("MM-dd-uuuu HH:mm").withResolverStyle(ResolverStyle.STRICT);
 
         private final String vehicleId;
         private final String accountEmail;
@@ -137,8 +139,7 @@ public class FileManager implements RecordWriter {
         private final String arrivalTime;
         private final String departureTime;
 
-        private VehicleEntry(String accountEmail, String vehicleId, String ownerId, String make, String model,
-                             String year, String arrivalTime, String departureTime) {
+        private VehicleEntry(String accountEmail, String vehicleId, String ownerId, String make, String model, String year, String arrivalTime, String departureTime) {
             this.accountEmail = accountEmail;
             this.vehicleId = vehicleId;
             this.ownerId = ownerId;

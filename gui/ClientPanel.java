@@ -1,5 +1,3 @@
-
-
 package gui;
 
 import java.awt.BorderLayout;
@@ -25,6 +23,10 @@ import model.Job;
 import model.SubmissionRequest;
 import scheduling.ScheduleEntry;
 import scheduling.ScheduleResult;
+import javax.swing.SwingUtilities;
+import controller.ControllerClient;
+import model.RequestStatus;
+import model.ServerResponse;
 
 public class ClientPanel extends JPanel {
 
@@ -34,27 +36,21 @@ public class ClientPanel extends JPanel {
     // Dates are typed as MM-dd-yyyy so the form compiles with javac Main.java.
     private final JTextField jobAvailabilityField = new JTextField(12);
 
-    private final JSpinner startHour =
-            new JSpinner(new SpinnerNumberModel(9, 1, 12, 1));
+    private final JSpinner startHour = new JSpinner(new SpinnerNumberModel(9, 1, 12, 1));
 
-    private final JSpinner startMinute =
-            new JSpinner(new SpinnerNumberModel(0, 0, 59, 1));
+    private final JSpinner startMinute = new JSpinner(new SpinnerNumberModel(0, 0, 59, 1));
 
-    private final JComboBox<String> startAmPm =
-            new JComboBox<>(new String[]{"AM", "PM"});
+    private final JComboBox<String> startAmPm = new JComboBox<>(new String[]{"AM", "PM"});
 
     private final JTextField jobDurationField = new JTextField(22);
 
     private final JTextField jobDeadlineField = new JTextField(12);
 
-    private final JSpinner endHour =
-            new JSpinner(new SpinnerNumberModel(5, 1, 12, 1));
+    private final JSpinner endHour = new JSpinner(new SpinnerNumberModel(5, 1, 12, 1));
 
-    private final JSpinner endMinute =
-            new JSpinner(new SpinnerNumberModel(0, 0, 59, 1));
+    private final JSpinner endMinute = new JSpinner(new SpinnerNumberModel(0, 0, 59, 1));
 
-    private final JComboBox<String> endAmPm =
-            new JComboBox<>(new String[]{"AM", "PM"});
+    private final JComboBox<String> endAmPm = new JComboBox<>(new String[]{"AM", "PM"});
 
     private final JTextField priorityField = new JTextField(22);
 
@@ -74,7 +70,6 @@ public class ClientPanel extends JPanel {
     };
 
     private final JTable scheduleTable = new JTable(tableModel);
-
     private final JLabel jobStatus = new JLabel("Your jobs only. Completion time is shown to the controller.");
 
     public ClientPanel() {
@@ -137,7 +132,7 @@ public class ClientPanel extends JPanel {
         JButton refresh = new JButton("Refresh schedule");
         refresh.addActionListener(event -> refreshSchedule());
         JButton submit = new JButton("Submit job");
-        submit.addActionListener(event -> submitJob());
+        submit.addActionListener(event -> submitJob(submit));
         JPanel buttons = new JPanel(new GridLayout(1, 2, 8, 0));
         buttons.add(refresh);
         buttons.add(submit);
@@ -174,7 +169,6 @@ public class ClientPanel extends JPanel {
             ScheduleResult result = controller.scheduleJobs();
             String mine = MainFrame.getCurrentEmail();
             tableModel.setRowCount(0);
-            addMyWaitingJobs(mine);
             for (ScheduleEntry entry : result.getEntries()) {
                 Job job = entry.getJob();
                 String ownerEmail = controller.getJobAccountEmail(job.getJobId());
@@ -187,7 +181,7 @@ public class ClientPanel extends JPanel {
                         job.getClientId(),
                         job.getEstimatedDuration(),
                         job.getPriority(),
-                        "Saved"
+                        "ACCEPTED"
                 });
             }
         } catch (RuntimeException ex) {
@@ -195,7 +189,7 @@ public class ClientPanel extends JPanel {
         }
     }
     // Send the job to the controller. It is not saved until accepted.
-    private void submitJob() {
+    private void submitJob(JButton submitButton) {
         ClientSubmit submit = new ClientSubmit(
                 clientIdField.getText(),
                 jobIdField.getText(),
@@ -206,24 +200,82 @@ public class ClientPanel extends JPanel {
                 formatTime(startHour, startMinute, startAmPm),
                 formatTime(endHour, endMinute, endAmPm)
         );
-
         try {
             Job job = submit.createJob();
+            SubmissionRequest request = SubmissionRequest.forJob(job, MainFrame.getCurrentUser(), MainFrame.getCurrentEmail());
+            String submittingEmail = MainFrame.getCurrentEmail();
+            ControllerClient client = new ControllerClient();
+            submitButton.setEnabled(false);
+            jobStatus.setText("Sending job submission to controller...");
+            // Socket communication runs in the background.
+            Thread submissionThread = new Thread(() -> {
+                try {
+                    ServerResponse decision = client.submit(request, acknowledgement ->
+                            SwingUtilities.invokeLater(() -> {
+                                String acknowledgementMessage = "ACKNOWLEDGED: " + acknowledgement.getMessage();
+                                // Update the message below the schedule.
+                                jobStatus.setText(acknowledgementMessage);
+                                // Show the submitted job while the controller reviews it.
+                                updateJobRow(job, "PENDING");
+                                // Display an acknowledgement popup.
+                                JOptionPane.showMessageDialog(
+                                        this,
+                                        acknowledgementMessage,
+                                        "Job Submission Acknowledged",
+                                        JOptionPane.INFORMATION_MESSAGE
+                                );
+                            })
+                    );
+                    // Display the final controller decision.
+                    SwingUtilities.invokeLater(() -> {
+                        String title;
+                        String message;
+                        if (decision.getStatus() == RequestStatus.ACCEPTED) {
+                            title = "Job Accepted";
+                            message = "Job ID: " + job.getJobId()
+                                    + "\nStatus: ACCEPTED"
+                                    + "\n\n" + decision.getMessage();
+                            clearFields();
+                            refreshSchedule();
+                            updateJobRow(job, "ACCEPTED");
+                        }
+                        else if (decision.getStatus() == RequestStatus.REJECTED) {
+                        title = "Job Rejected";
+                        message = "Job ID: " + job.getJobId()
+                                + "\nStatus: REJECTED"
+                                + "\n\n" + decision.getMessage();
 
-            SubmissionRequest request = SubmissionRequest.forJob(
-                    job,
-                    MainFrame.getCurrentUser(),
-                    MainFrame.getCurrentEmail()
-            );
-            ReviewQueue.get().add(request);
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Request received. Waiting for the controller to accept or reject it.",
-                    "Request sent",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-            clearFields();
-            refreshSchedule();
+                        updateJobRow(job, "REJECTED");
+                        }
+                        else {
+                            title = "Submission Error";
+                            message = decision.getMessage();
+                        }
+                        // Store the notification for the original submitter.
+                        MainFrame.queueClientNotification(
+                                submittingEmail,
+                                title,
+                                message
+                        );
+                        submitButton.setEnabled(true);
+                    });
+
+                } catch (Exception ex) {
+                    System.err.println("Client submission error:");
+                    ex.printStackTrace();
+                    SwingUtilities.invokeLater(() -> {
+                        jobStatus.setText("Could not communicate with controller: " + ex.getMessage());
+                        JOptionPane.showMessageDialog(
+                                this,
+                                ex.getMessage(),
+                                "Connection Error",
+                                JOptionPane.ERROR_MESSAGE
+                        );
+                        submitButton.setEnabled(true);
+                    });
+                }
+            }, "job-submission");
+            submissionThread.start();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(
                     this,
@@ -231,28 +283,6 @@ public class ClientPanel extends JPanel {
                     "Could not submit job",
                     JOptionPane.ERROR_MESSAGE
             );
-        }
-    }
-    // Waiting requests for this user.
-    private void addMyWaitingJobs(String mine) {
-        java.util.List<SubmissionRequest> waiting = ReviewQueue.get().list();
-        for(int i = 0; i < waiting.size(); i++) {
-            SubmissionRequest request = waiting.get(i);
-            if (request.getJob() == null) {
-                continue;
-            }
-            if (!mine.isEmpty()
-                    && !mine.equalsIgnoreCase(request.getRequesterEmail())) {
-                continue;
-            }
-            Job job = request.getJob();
-            tableModel.addRow(new Object[]{
-                    job.getJobId(),
-                    job.getClientId(),
-                    job.getEstimatedDuration(),
-                    job.getPriority(),
-                    "Waiting"
-            });
         }
     }
 
@@ -270,6 +300,26 @@ public class ClientPanel extends JPanel {
         endHour.setValue(5);
         endMinute.setValue(0);
         endAmPm.setSelectedItem("PM");
+    }
+
+    // Add a job to the table or update its existing status.
+    private void updateJobRow(Job job, String status) {
+        for (int row = 0; row < tableModel.getRowCount(); row++) {
+            String existingJobId = tableModel.getValueAt(row, 0).toString();
+
+            if (existingJobId.equals(job.getJobId())) {
+                tableModel.setValueAt(status, row, 4);
+                return;
+            }
+        }
+
+        tableModel.addRow(new Object[]{
+                job.getJobId(),
+                job.getClientId(),
+                job.getEstimatedDuration(),
+                job.getPriority(),
+                status
+        });
     }
 
     private static void configureAmPm(JComboBox<String> combo) {
