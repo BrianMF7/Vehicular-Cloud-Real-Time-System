@@ -13,3 +13,4 @@
 
 
 2026-11-11 15:43:18|JOB|Jakub Cholko|jakubcholko50@gmail.com|1234|1234|11-11-2026|09:00 AM|1|11-12-2026|05:00 PM|1|
+2026-11-12 09:33:00|VEHICLE|6177a70c-54c3-48a1-87fa-b09ca4cf48c3|Toyota|Camry|2020|11-12-2026 09:00|11-14-2026 17:00|4.0|Brian|brianmflores697@gmail.com

@@ -72,8 +72,6 @@ public class ControllerPanel extends JPanel {
         reject.addActionListener(event -> decide(false));
         JButton refresh = new JButton("Refresh");
         refresh.addActionListener(event -> refresh());
-        JButton signOut = new JButton("Sign out");
-        signOut.addActionListener(event -> MainFrame.signOutFromScreen());
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         buttons.setAlignmentX(LEFT_ALIGNMENT);
@@ -81,7 +79,6 @@ public class ControllerPanel extends JPanel {
         buttons.add(accept);
         buttons.add(reject);
         buttons.add(refresh);
-        buttons.add(signOut);
         page.add(buttons);
         page.add(Box.createRigidArea(new Dimension(0, 16)));
 
