@@ -1,22 +1,19 @@
 package gui;
 
 import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.Locale;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.SpinnerNumberModel;
 import javax.swing.table.DefaultTableModel;
 import controller.VehicularCloudController;
 import model.Job;
@@ -33,24 +30,13 @@ public class ClientPanel extends JPanel {
     private final JTextField clientIdField = new JTextField(22);
     private final JTextField jobIdField = new JTextField(22);
 
-    // Dates are typed as MM-dd-yyyy so the form compiles with javac Main.java.
-    private final JTextField jobAvailabilityField = new JTextField(12);
-
-    private final JSpinner startHour = new JSpinner(new SpinnerNumberModel(9, 1, 12, 1));
-
-    private final JSpinner startMinute = new JSpinner(new SpinnerNumberModel(0, 0, 59, 1));
-
-    private final JComboBox<String> startAmPm = new JComboBox<>(new String[]{"AM", "PM"});
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MM-dd-uuuu");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("hh:mm a", Locale.US);
+    private final DateTimePicker jobAvailability = new DateTimePicker();
 
     private final JTextField jobDurationField = new JTextField(22);
 
-    private final JTextField jobDeadlineField = new JTextField(12);
-
-    private final JSpinner endHour = new JSpinner(new SpinnerNumberModel(5, 1, 12, 1));
-
-    private final JSpinner endMinute = new JSpinner(new SpinnerNumberModel(0, 0, 59, 1));
-
-    private final JComboBox<String> endAmPm = new JComboBox<>(new String[]{"AM", "PM"});
+    private final DateTimePicker jobDeadline = new DateTimePicker();
 
     private final JTextField priorityField = new JTextField(22);
 
@@ -58,7 +44,7 @@ public class ClientPanel extends JPanel {
             new Object[]{
                     "Job ID",
                     "Client ID",
-                    "Duration (days)",
+                    "Duration (hours)",
                     "Priority",
                     "Status"
             }, 0) {
@@ -75,11 +61,6 @@ public class ClientPanel extends JPanel {
     public ClientPanel() {
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        configureAmPm(startAmPm);
-        configureAmPm(endAmPm);
-        startAmPm.setSelectedItem("AM");
-        endAmPm.setSelectedItem("PM");
-
         // Title section.
         JPanel titlePanel = new JPanel(new BorderLayout());
         JLabel title = new JLabel("Submit a Job");
@@ -91,39 +72,15 @@ public class ClientPanel extends JPanel {
         add(titlePanel, BorderLayout.NORTH);
         // Form fields.
         JPanel fields = FormRows.fields();
-        // Availability date and start time.
-        JPanel availabilityRow = new JPanel(new BorderLayout(10, 0));
-        availabilityRow.add(jobAvailabilityField, BorderLayout.CENTER);
-        JPanel startTimeControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-
-        startTimeControls.add(new JLabel("Start time:"));
-        startTimeControls.add(startHour);
-        startTimeControls.add(new JLabel(":"));
-        startTimeControls.add(startMinute);
-        startTimeControls.add(startAmPm);
-
-        availabilityRow.add(startTimeControls, BorderLayout.EAST);
-        // Deadline date and end time.
-        JPanel deadlineRow = new JPanel(new BorderLayout(10, 0));
-        deadlineRow.add(jobDeadlineField, BorderLayout.CENTER);
-        JPanel endTimeControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-
-        endTimeControls.add(new JLabel("End time:"));
-        endTimeControls.add(endHour);
-        endTimeControls.add(new JLabel(":"));
-        endTimeControls.add(endMinute);
-        endTimeControls.add(endAmPm);
-
-        deadlineRow.add(endTimeControls, BorderLayout.EAST);
         // Add form rows.
         FormRows.addRow(fields, 0, "Client ID *", clientIdField);
         FormRows.addRow(fields, 1, "Job ID *", jobIdField);
 
-        FormRows.addRow(fields, 2, "Job availability (MM-dd-yyyy) *", availabilityRow);
-        FormRows.addRow(fields, 3, "Job duration (days) *", jobDurationField);
-        FormRows.addRow(fields, 4, "Job deadline (MM-dd-yyyy) *", deadlineRow);
+        FormRows.addRow(fields, 2, "Job availability date and time *", jobAvailability);
+        FormRows.addRow(fields, 3, "Job duration (hours) *", jobDurationField);
+        FormRows.addRow(fields, 4, "Job deadline date and time *", jobDeadline);
         FormRows.addRow(fields, 5, "Priority (positive whole number) *", priorityField);
-        JLabel hint = new JLabel("Type dates as MM-dd-yyyy. Duration must fit between availability and deadline.");
+        JLabel hint = new JLabel("Choose dates and times. Duration must fit between availability and deadline.");
         JPanel form = new JPanel(new BorderLayout(0, 8));
         form.add(fields, BorderLayout.CENTER);
         form.add(hint, BorderLayout.SOUTH);
@@ -190,15 +147,23 @@ public class ClientPanel extends JPanel {
     }
     // Send the job to the controller. It is not saved until accepted.
     private void submitJob(JButton submitButton) {
+        LocalDateTime availabilityTime = jobAvailability.getSelectedDateTime();
+        LocalDateTime deadlineTime = jobDeadline.getSelectedDateTime();
+        if (availabilityTime == null || deadlineTime == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Choose a date, hour, and minute for availability and deadline.",
+                    "Could not submit job", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         ClientSubmit submit = new ClientSubmit(
                 clientIdField.getText(),
                 jobIdField.getText(),
-                jobAvailabilityField.getText(),
+                availabilityTime.format(DATE_FORMAT),
                 jobDurationField.getText(),
-                jobDeadlineField.getText(),
+                deadlineTime.format(DATE_FORMAT),
                 priorityField.getText(),
-                formatTime(startHour, startMinute, startAmPm),
-                formatTime(endHour, endMinute, endAmPm)
+                availabilityTime.format(TIME_FORMAT),
+                deadlineTime.format(TIME_FORMAT)
         );
         try {
             Job job = submit.createJob();
@@ -290,16 +255,10 @@ public class ClientPanel extends JPanel {
     private void clearFields() {
         clientIdField.setText("");
         jobIdField.setText("");
-        jobAvailabilityField.setText("");
+        jobAvailability.clearSelection();
         jobDurationField.setText("");
-        jobDeadlineField.setText("");
+        jobDeadline.clearSelection();
         priorityField.setText("");
-        startHour.setValue(9);
-        startMinute.setValue(0);
-        startAmPm.setSelectedItem("AM");
-        endHour.setValue(5);
-        endMinute.setValue(0);
-        endAmPm.setSelectedItem("PM");
     }
 
     // Add a job to the table or update its existing status.
@@ -322,23 +281,4 @@ public class ClientPanel extends JPanel {
         });
     }
 
-    private static void configureAmPm(JComboBox<String> combo) {
-        combo.setEditable(false);
-        combo.setPrototypeDisplayValue("PM");
-        combo.setPreferredSize(new Dimension(65, 25));
-        combo.setMinimumSize(new Dimension(65, 25));
-    }
-    // Convert the selected time into HH:mm AM/PM format.
-    private static String formatTime(
-            JSpinner hour,
-            JSpinner minute,
-            JComboBox<String> amPm) {
-        return String.format(
-                Locale.US,
-                "%02d:%02d %s",
-                (Integer) hour.getValue(),
-                (Integer) minute.getValue(),
-                amPm.getSelectedItem()
-        );
-    }
 }

@@ -15,6 +15,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 
 import controller.VehicularCloudController;
@@ -36,13 +37,13 @@ public class ControllerPanel extends JPanel {
         }
     };
     private final DefaultTableModel jobRows = new DefaultTableModel(
-            new String[] {"Job ID", "Client", "Email", "Priority", "Completion time"}, 0) {
+            new String[] {"Job ID", "Client", "Email", "Priority", "Completion (hours)"}, 0) {
         public boolean isCellEditable(int row, int column) {
             return false;
         }
     };
     private final JTable pendingTable = new JTable(pendingRows);
-    private final JLabel averageLabel = new JLabel("Average waiting time: —");
+    private final JLabel averageLabel = new JLabel("Average waiting time (hours): —");
 
     public ControllerPanel() {
         setLayout(new BorderLayout());
@@ -94,6 +95,7 @@ public class ControllerPanel extends JPanel {
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         add(scroll, BorderLayout.CENTER);
         refresh();
+        ReviewQueue.get().setOnChange(() -> SwingUtilities.invokeLater(this::refresh));
     }
 
     // Accept or reject the selected waiting request.
@@ -134,7 +136,7 @@ public class ControllerPanel extends JPanel {
                 Integer.valueOf(entry.getCompletionTime())
             });
         }
-        averageLabel.setText("Average waiting time: " + result.getAverageWaitingTime());
+        averageLabel.setText("Average waiting time (hours): " + result.getAverageWaitingTime());
     }
 
     private String details(SubmissionRequest request) {

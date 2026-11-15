@@ -68,6 +68,7 @@ public class MainFrame extends JFrame implements SaveListener {
         super("Vehicular Cloud Console");
             active = this;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        ReviewQueue.start();
         
         //Header at top. Sign Out stays in this bar for users and the controller.
         JPanel labels = new JPanel(new GridLayout(2, 1, 0, 8));
@@ -824,7 +825,7 @@ public class MainFrame extends JFrame implements SaveListener {
         JOptionPane.showMessageDialog(this, message, "Could not save", JOptionPane.ERROR_MESSAGE);
        }
 
-    // Queue a final job decision for the original submitter.
+    // Queue a final job or vehicle decision for the original submitter.
     public static void queueClientNotification(
             String recipientEmail,
             String title,
@@ -842,7 +843,7 @@ public class MainFrame extends JFrame implements SaveListener {
         });
     }
 
-    // Display notifications belonging only to the currently logged-in client.
+    // Display notifications belonging only to the currently logged-in user.
     private void showPendingNotificationsForCurrentUser() {
         if (currentEmail == null || currentEmail.trim().isEmpty() || isController()) {
             return;

@@ -106,9 +106,9 @@ class ControllerServerTest {
             assertJobTimes(controller.getJobs().get(0), "job-accept");
             assertEquals("Joshua", controller.getJobAccountName("job-accept"));
             assertEquals("joshua@example.com", controller.getJobAccountEmail("job-accept"));
-            // Times belong at the end: duration, deadline, and priority stay in their old spots.
+            // New job records mark durations as hours so older day records still load correctly.
             assertTrue(logContains(
-                    "|JOB|Joshua|joshua@example.com|client-1|job-accept|11-10-2026|5|11-20-2026|2|09:00 AM|05:00 PM"));
+                    "|JOB|Joshua|joshua@example.com|client-1|job-accept|11-10-2026|09:00 AM|5|11-20-2026|05:00 PM|2|HOURS|"));
             assertTrue(registry.list().isEmpty());
         }
 

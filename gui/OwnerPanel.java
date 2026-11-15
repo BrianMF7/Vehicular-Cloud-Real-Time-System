@@ -8,6 +8,7 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.UUID;
 import java.util.List;
+import java.util.Objects;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -18,9 +19,16 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.Timer;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 
+import controller.ControllerClient;
+import controller.PendingRequestRegistry;
 import controller.VehicularCloudController;
+import model.RequestStatus;
+import model.RequestType;
+import model.ServerResponse;
+import model.SubmissionRequest;
 import model.Vehicle;
 
 public class OwnerPanel extends JPanel {
@@ -36,6 +44,12 @@ public class OwnerPanel extends JPanel {
     private final DateTimePicker arrival = new DateTimePicker();
     private final DateTimePicker departure = new DateTimePicker();
     private final JTextField computePower = new JTextField(22);
+    private final ControllerClient client;
+    private final PendingRequestRegistry reviewQueue;
+    private final boolean requireLocalController;
+    private final JButton submit = new JButton("Submit car for review");
+    private final JLabel submissionStatus = new JLabel(" ");
+    private String sendingRequestId;
     private final DefaultTableModel vehicleRows = new DefaultTableModel(
             new String[] {"Vehicle ID", "Owner", "Car model", "Current status"}, 0) {
         @Override
@@ -47,6 +61,18 @@ public class OwnerPanel extends JPanel {
     private final Timer refreshTimer = new Timer(5000, event -> refreshVehicles());
 
     public OwnerPanel() {
+        this(new ControllerClient(), ReviewQueue.get(), true);
+    }
+
+    OwnerPanel(ControllerClient client, PendingRequestRegistry reviewQueue) {
+        this(client, reviewQueue, false);
+    }
+
+    private OwnerPanel(ControllerClient client, PendingRequestRegistry reviewQueue,
+            boolean requireLocalController) {
+        this.client = Objects.requireNonNull(client, "Controller client is required.");
+        this.reviewQueue = Objects.requireNonNull(reviewQueue, "Review queue is required.");
+        this.requireLocalController = requireLocalController;
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
@@ -63,15 +89,17 @@ public class OwnerPanel extends JPanel {
         registration.add(fields, BorderLayout.CENTER);
 
         //Button and hint go at the bottom
-        JButton submit = new JButton("Register car");
-           submit.addActionListener(event -> registerCar());
-           registration.add(FormRows.footer("Choose a date and time using your computer's local time. * Required", submit), BorderLayout.SOUTH);
+        submit.addActionListener(event -> registerCar());
+        JPanel submissionFooter = new JPanel(new BorderLayout(0, 4));
+        submissionFooter.add(FormRows.footer("Choose a date and time using your computer's local time. * Required", submit), BorderLayout.NORTH);
+        submissionFooter.add(submissionStatus, BorderLayout.SOUTH);
+        registration.add(submissionFooter, BorderLayout.SOUTH);
         add(registration, BorderLayout.NORTH);
 
         JPanel listPanel = new JPanel(new BorderLayout(0, 8));
-        listPanel.setBorder(BorderFactory.createTitledBorder("Registered vehicles"));
+        listPanel.setBorder(BorderFactory.createTitledBorder("Vehicles and review requests"));
         JPanel listHeader = new JPanel(new BorderLayout());
-        listHeader.add(new JLabel("Vehicles saved in the system"), BorderLayout.WEST);
+        listHeader.add(new JLabel("Registered vehicles and submissions awaiting review"), BorderLayout.WEST);
         JButton refresh = new JButton("Refresh list");
         refresh.addActionListener(event -> refreshVehicles());
         listHeader.add(refresh, BorderLayout.EAST);
@@ -142,20 +170,55 @@ public class OwnerPanel extends JPanel {
                 showError("Vehicle fields cannot contain | or line breaks.");
                 return;
             }
+            if (requireLocalController && !ReviewQueue.isRunning()) {
+                showError("Controller service is unavailable in this app. Close other running copies and restart Main.");
+                return;
+            }
             //Makes a random id for this car
             String vehicleId = UUID.randomUUID().toString();
             Vehicle vehicle = new Vehicle(vehicleId, carMake, carModel, yearValue,
                     arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT));
             String accountEmail = MainFrame.getCurrentEmail();
-            boolean saved = VehicularCloudController.getInstance()
-                    .registerVehicle(vehicle, power, owner, accountEmail);
-            if (!saved) {
-                showError("Could not register this car.");
-                return;
-            }
-            refreshVehicles();
-            JOptionPane.showMessageDialog(this, "Car registered. Vehicle ID: " + vehicleId);
-            clearFields();
+            SubmissionRequest request = SubmissionRequest.forVehicle(vehicle, owner, power,
+                    MainFrame.getCurrentUser(), accountEmail);
+            sendingRequestId = request.getRequestId();
+            submit.setEnabled(false);
+            submissionStatus.setText("Sending car to controller for review...");
+            Thread submissionThread = new Thread(() -> {
+                try {
+                    ServerResponse decision = client.submit(request, acknowledgement ->
+                            SwingUtilities.invokeLater(() -> {
+                                submissionStatus.setText("ACKNOWLEDGED: " + acknowledgement.getMessage());
+                                refreshVehicles();
+                                if (request.getRequestId().equals(sendingRequestId)) {
+                                    clearFields();
+                                    sendingRequestId = null;
+                                    submit.setEnabled(true);
+                                }
+                            }));
+                    SwingUtilities.invokeLater(() -> {
+                        RequestStatus status = decision.getStatus();
+                        String title = status == RequestStatus.ACCEPTED ? "Car Accepted"
+                                : status == RequestStatus.REJECTED ? "Car Rejected" : "Car Submission Error";
+                        String message = "Vehicle ID: " + vehicleId + "\nStatus: " + status
+                                + "\n\n" + decision.getMessage();
+                        submissionStatus.setText(status + ": " + decision.getMessage());
+                        refreshVehicles();
+                        MainFrame.queueClientNotification(accountEmail, title, message);
+                    });
+                } catch (Exception ex) {
+                    SwingUtilities.invokeLater(() -> {
+                        String message = "Could not communicate with controller: " + ex.getMessage();
+                        submissionStatus.setText(message);
+                        if (request.getRequestId().equals(sendingRequestId)) {
+                            sendingRequestId = null;
+                            submit.setEnabled(true);
+                        }
+                        MainFrame.queueClientNotification(accountEmail, "Car Submission Error", message);
+                    });
+                }
+            }, "vehicle-submission");
+            submissionThread.start();
         } catch (NumberFormatException ex) {
             showError("Year and compute power must be numbers.");
         } catch (IllegalArgumentException ex) {
@@ -178,7 +241,8 @@ public class OwnerPanel extends JPanel {
         List<Vehicle> vehicles = controller.getVehicles();
         String currentEmail = MainFrame.getCurrentEmail();
         LocalDateTime now = LocalDateTime.now();
-        int visibleCount = 0;
+        int registeredCount = 0;
+        int pendingCount = 0;
         vehicleRows.setRowCount(0);
         for (int i = vehicles.size() - 1; i >= 0; i--) {
             Vehicle vehicle = vehicles.get(i);
@@ -190,9 +254,21 @@ public class OwnerPanel extends JPanel {
             vehicleRows.addRow(new Object[] {vehicle.getVehicleId(),
                     controller.getVehicleOwnerId(vehicle.getVehicleId()),
                     carModel, statusAt(vehicle, now)});
-            visibleCount++;
+            registeredCount++;
         }
-        tableMessage.setText(visibleCount + " vehicle(s). Status reflects arrival/departure times.");
+        for (SubmissionRequest request : reviewQueue.list()) {
+            if (request.getType() != RequestType.VEHICLE
+                    || (!currentEmail.isEmpty()
+                    && !currentEmail.equalsIgnoreCase(request.getRequesterEmail()))) {
+                continue;
+            }
+            Vehicle vehicle = request.getVehicle();
+            String carModel = vehicle.getMake() + " " + vehicle.getModel() + " (" + vehicle.getYear() + ")";
+            vehicleRows.addRow(new Object[] {vehicle.getVehicleId(), request.getOwnerId(),
+                    carModel, "Pending review"});
+            pendingCount++;
+        }
+        tableMessage.setText(registeredCount + " registered, " + pendingCount + " waiting for review.");
     }
 
     private boolean containsBreak(String value) {

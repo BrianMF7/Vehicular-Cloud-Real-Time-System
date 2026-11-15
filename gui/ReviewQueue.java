@@ -21,6 +21,10 @@ public class ReviewQueue {
         return registry;
     }
 
+    public static boolean isRunning() {
+        return server != null;
+    }
+
     //Start the same server the Accept and Reject buttons use.
     public static void start() {
           if (server != null) {

@@ -118,7 +118,7 @@ public class Job implements Serializable {
     public String toString() {
         return "Client ID: " + clientId +
                 ", Job ID: " + jobId +
-                ", Estimated Duration: " + estimatedDuration + " minutes" +
+                ", Estimated Duration: " + estimatedDuration + " hours" +
                 ", Deadline: " + deadline +
                 ", Priority: " + priority;
     }

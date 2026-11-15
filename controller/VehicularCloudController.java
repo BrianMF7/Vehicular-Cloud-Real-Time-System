@@ -136,7 +136,7 @@ public class VehicularCloudController {
                 + "Vehicles: " + vehicles.size() + " (" + availableCount + " available)\n"
                 + "Jobs: " + jobs.size() + " (" + vehicleIdByJobId.size() + " assigned)\n"
                 + "Total available compute: " + totalAvailableCompute + "\n"
-                + "Average waiting time: " + lastSchedule.getAverageWaitingTime();
+                + "Average waiting time (hours): " + lastSchedule.getAverageWaitingTime();
     }
 
     // Add a car. Compute is treated as 0 if the caller does not pass it.
@@ -281,7 +281,7 @@ public class VehicularCloudController {
                 + "|" + safe(job.getDeadline())
                 + "|" + safe(job.getEndTime())
                 + "|" + job.getPriority()
-                + "|")) {
+                + "|HOURS|")) {
 
             return false;
         }
