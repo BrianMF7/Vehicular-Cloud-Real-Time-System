@@ -427,9 +427,18 @@ public class VehicularCloudController {
         }
     }
 
+    /**
+     * Reload saved vehicles and jobs from the application log.
+     * This allows separate application processes to see newly accepted
+     * submissions without restarting.
+     */
+    public synchronized void refreshSavedData() {
+        loadSavedData();
+    }
+
     // Read cars and jobs that were already written to the log file.
     private void loadSavedData() {
-        Path path = Paths.get("vehicular_cloud_log.txt");
+        Path path = Paths.get(fileManager.getFilePath());
         if (!Files.exists(path)) {
             return;
         }
@@ -625,6 +634,11 @@ public class VehicularCloudController {
         return Double.parseDouble(text.trim());
     }
 
+    // Compute power stored for this vehicle.
+    public double getVehicleComputePower(String vehicleId) {
+        return getCompute(vehicleId);
+    }
+
     // True when the text is missing or only spaces.
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
@@ -635,3 +649,4 @@ public class VehicularCloudController {
         return value == null ? "" : value.trim();
     }
 }
+
