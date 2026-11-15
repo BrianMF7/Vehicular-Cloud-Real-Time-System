@@ -361,6 +361,12 @@ public class MainFrame extends JFrame implements SaveListener {
     
     //Toggle between Sign In and Sign Up mode
     private void toggleLoginMode() {
+               //A test which a second person can't sign up as the controller
+                      if (controllerSignIn && !isSignUpMode && controllerEmail() != null) {
+            JOptionPane.showMessageDialog(this, "A controller account already exists. Please sign in.",
+                    "Sign Up", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
         isSignUpMode = !isSignUpMode;
         clearLoginFields();
         refreshLoginScreen();
@@ -599,6 +605,10 @@ public class MainFrame extends JFrame implements SaveListener {
 
     // True when the sign-up fields should show, for a user or the controller.
     private boolean showAccountFields() {
+        //A test which a controller sign up fields only show before controller.txt exists
+                      if (controllerSignIn && controllerEmail() != null) {
+            return false;
+        }
         return isSignUpMode;
     }
 
@@ -616,6 +626,15 @@ public class MainFrame extends JFrame implements SaveListener {
     }
 
     private void handleControllerSetup() {
+        //A test which don't overwrite controller.txt after the first setup
+        if (controllerEmail() != null) {
+                 JOptionPane.showMessageDialog(this, "A controller account already exists. Please sign in.",
+                    "Setup Failed", JOptionPane.ERROR_MESSAGE);
+             isSignUpMode = false;
+                 clearLoginFields();
+            refreshLoginScreen();
+            return;
+        }
         String name = nameField.getText().trim();
         String email = emailField.getText().trim();
         String password = new String(passwordField.getPassword()).trim();
