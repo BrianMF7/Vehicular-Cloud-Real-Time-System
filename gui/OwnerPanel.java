@@ -6,8 +6,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -17,10 +17,15 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
 
+import controller.ControllerClient;
 import controller.VehicularCloudController;
+import model.RequestStatus;
+import model.ServerResponse;
+import model.SubmissionRequest;
 import model.Vehicle;
 
 public class OwnerPanel extends JPanel {
@@ -64,7 +69,7 @@ public class OwnerPanel extends JPanel {
 
         //Button and hint go at the bottom
         JButton submit = new JButton("Register car");
-           submit.addActionListener(event -> registerCar());
+        submit.addActionListener(event -> registerCar(submit));
            registration.add(FormRows.footer("Times use your computer's local time. * Required", submit), BorderLayout.SOUTH);
         add(registration, BorderLayout.NORTH);
 
@@ -106,30 +111,30 @@ public class OwnerPanel extends JPanel {
         super.removeNotify();
     }
 
-    private void registerCar() {
-         //Grab everything the user typed
+    private void registerCar(JButton submitButton) {
+        //Grab everything the user typed
         String owner = ownerId.getText().trim();
-           String carMake = make.getText().trim();
+        String carMake = make.getText().trim();
         String carModel = model.getText().trim();
-           String carYear = year.getText().trim();
+        String carYear = year.getText().trim();
         String arrivalText = arrival.getText().trim();
-         String departureText = departure.getText().trim();
+        String departureText = departure.getText().trim();
         String powerText = computePower.getText().trim();
-        
+
         //Make sure nothing is blank
-            if (owner.isEmpty() || carMake.isEmpty() || carModel.isEmpty() || carYear.isEmpty()
+        if (owner.isEmpty() || carMake.isEmpty() || carModel.isEmpty() || carYear.isEmpty()
                 || arrivalText.isEmpty() || departureText.isEmpty() || powerText.isEmpty()) {
-                 showError("Complete every required vehicle field.");
+            showError("Complete every required vehicle field.");
             return;
-            }
+        }
 
         try {
             //Check the dates are real and make sense
             LocalDateTime arrivalTime = LocalDateTime.parse(arrivalText, TIME_FORMAT);
-             LocalDateTime departureTime = LocalDateTime.parse(departureText, TIME_FORMAT);
-               if (!departureTime.isAfter(arrivalTime) || !departureTime.isAfter(LocalDateTime.now())) {
+            LocalDateTime departureTime = LocalDateTime.parse(departureText, TIME_FORMAT);
+            if (!departureTime.isAfter(arrivalTime) || !departureTime.isAfter(LocalDateTime.now())) {
                 throw new IllegalArgumentException("Departure must be after arrival and in the future.");
-               }
+            }
             int yearValue = Integer.parseInt(carYear);
             if (yearValue < 1995 || yearValue > 2027) {
                 showError("Year must be between 1995 and 2027.");
@@ -150,15 +155,64 @@ public class OwnerPanel extends JPanel {
             Vehicle vehicle = new Vehicle(vehicleId, carMake, carModel, yearValue,
                     arrivalTime.format(TIME_FORMAT), departureTime.format(TIME_FORMAT));
             String accountEmail = MainFrame.getCurrentEmail();
-            boolean saved = VehicularCloudController.getInstance()
-                    .registerVehicle(vehicle, power, owner, accountEmail);
-            if (!saved) {
-                showError("Could not register this car.");
-                return;
-            }
-            refreshVehicles();
-            JOptionPane.showMessageDialog(this, "Car registered. Vehicle ID: " + vehicleId);
-            clearFields();
+            SubmissionRequest request = SubmissionRequest.forVehicle(
+                    vehicle, owner, power, MainFrame.getCurrentUser(), accountEmail);
+            ControllerClient client = new ControllerClient();
+            submitButton.setEnabled(false);
+            tableMessage.setText("Sending car to the controller...");
+            //Talk to the server off the window thread, same idea as the job form.
+            Thread sendThread = new Thread(() -> {
+                try {
+                    ServerResponse decision = client.submit(request, acknowledgement ->
+                            SwingUtilities.invokeLater(() -> {
+                                String acknowledgementMessage = "ACKNOWLEDGED: " + acknowledgement.getMessage();
+                                tableMessage.setText(acknowledgementMessage);
+                                JOptionPane.showMessageDialog(
+                                        this,
+                                        acknowledgementMessage,
+                                        "Car Registration Acknowledged",
+                                        JOptionPane.INFORMATION_MESSAGE
+                                );
+                            })
+                    );
+                    SwingUtilities.invokeLater(() -> {
+                        String title;
+                        String message;
+                if (decision.getStatus() == RequestStatus.ACCEPTED) {
+                            title = "Car Accepted";
+                     message = "Vehicle ID: " + vehicleId
+                                    + "\nStatus: ACCEPTED"
+                                    + "\n\n" + decision.getMessage();
+                            clearFields();
+                            refreshVehicles();
+                 } else if (decision.getStatus() == RequestStatus.REJECTED) {
+                            title = "Car Rejected";
+                            message = "Vehicle ID: " + vehicleId
+                                    + "\nStatus: REJECTED"
+                                    + "\n\n" + decision.getMessage();
+                            tableMessage.setText("Car was rejected. Nothing was saved.");
+             } else {
+                            title = "Submission Error";
+                            message = decision.getMessage();
+                   tableMessage.setText(message);
+                            }
+                        MainFrame.queueClientNotification(accountEmail, title, message);
+                        submitButton.setEnabled(true);
+                    });
+                } catch (Exception ex) {
+                    SwingUtilities.invokeLater(() -> {
+                        tableMessage.setText("Could not communicate with controller: " + ex.getMessage());
+                                JOptionPane.showMessageDialog(
+                                this,
+                                ex.getMessage(),
+                                "Connection Error",
+                                JOptionPane.ERROR_MESSAGE
+                        );
+                        submitButton.setEnabled(true);
+                    });
+                       }
+            }, "car-submission");
+            sendThread.start();
         } catch (DateTimeParseException ex) {
             showError("Use MM-dd-yyyy HH:mm for arrival and departure, for example 10-01-2026 09:30.");
         } catch (NumberFormatException ex) {
