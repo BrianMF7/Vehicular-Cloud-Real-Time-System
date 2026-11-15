@@ -68,7 +68,7 @@ public class MainFrame extends JFrame implements SaveListener {
         super("Vehicular Cloud Console");
             active = this;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        ReviewQueue.start();
+
         
         //Header at top. Sign Out stays in this bar for users and the controller.
         JPanel labels = new JPanel(new GridLayout(2, 1, 0, 8));
