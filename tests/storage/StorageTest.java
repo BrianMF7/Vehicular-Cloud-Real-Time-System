@@ -64,7 +64,7 @@ class StorageTest {
         assertEquals("client-1", jobs.get(0).getClientId());
         assertEquals("job-1", jobs.get(0).getJobId());
         assertEquals("10-30-2026", jobs.get(0).getAvailability());
-        assertEquals(7, jobs.get(0).getEstimatedDuration());
+        assertEquals(168, jobs.get(0).getEstimatedDuration());
         assertEquals("11-02-2026", jobs.get(0).getDeadline());
         assertEquals(2, jobs.get(0).getPriority());
 
@@ -84,8 +84,19 @@ class StorageTest {
         assertEquals("client-2", job.getClientId());
         assertEquals("job-2", job.getJobId());
         assertEquals("10-30-2026", job.getAvailability());
-        assertEquals(4, job.getEstimatedDuration());
+        assertEquals(96, job.getEstimatedDuration());
         assertEquals(1, job.getPriority());
+    }
+
+    @Tag("unit")
+    @Test
+    void shouldKeepHourDurationsInNewJobRecords() {
+        Job job = RecordParser.parseJobRecord(
+                "JOB|Sajid|sajid@example.com|client-2|job-hours|12-01-2026|09:00 AM|3|12-01-2026|01:00 PM|1|HOURS|");
+        assertNotNull(job);
+        assertEquals(3, job.getEstimatedDuration());
+        assertEquals("09:00 AM", job.getStartTime());
+        assertEquals("01:00 PM", job.getEndTime());
     }
 
     // Verifies that empty records are not written to a log file.

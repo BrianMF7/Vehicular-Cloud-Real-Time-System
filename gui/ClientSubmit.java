@@ -169,7 +169,7 @@ public class ClientSubmit implements SubmitStrategy {
             durationValue = Integer.parseInt(duration.trim());
         } catch (NumberFormatException ex) {
             throw new Exception(
-                    "Duration must be a valid whole number of days."
+                    "Duration must be a valid whole number of hours."
             );
         }
         if (durationValue <= 0) {
@@ -197,22 +197,18 @@ public class ClientSubmit implements SubmitStrategy {
         if (deadlineDate.isBefore(today)) {
             throw new Exception("Job deadline cannot be in the past.");
         }
-        // Preserve the existing rule: deadline date must be later.
-        if (!deadlineDate.isAfter(availabilityDate)) {
+        if (deadlineDate.isBefore(availabilityDate)) {
             throw new Exception("Deadline must be after job availability.");
         }
-        // Validate the start and end times.
-        validateTimes(availabilityDate, deadlineDate);
-        // Calculate duration using calendar days.
-        long minimumDuration = ChronoUnit.DAYS.between(availabilityDate, deadlineDate);
-        if (durationValue > minimumDuration) {
-            throw new Exception("Duration cannot exceed " + minimumDuration + " days between availability and deadline."
+        long availableHours = validateTimes(availabilityDate, deadlineDate);
+        if (durationValue > availableHours) {
+            throw new Exception("Duration cannot exceed " + availableHours + " whole hours between availability and deadline."
             );
         }
     }
 
-    // Validate the time fields and compare the complete date/time values.
-    private void validateTimes(
+    // Validate the complete interval and return the whole hours it contains.
+    private long validateTimes(
             LocalDate availabilityDate,
             LocalDate deadlineDate) throws Exception {
 
@@ -221,7 +217,7 @@ public class ClientSubmit implements SubmitStrategy {
 
         // Older constructors may not supply times.
         if (startMissing && endMissing) {
-            return;
+            return ChronoUnit.HOURS.between(availabilityDate.atStartOfDay(), deadlineDate.atStartOfDay());
         }
         if (startMissing || endMissing) {
             throw new Exception(
@@ -255,11 +251,15 @@ public class ClientSubmit implements SubmitStrategy {
         }
         LocalDateTime startDateTime = LocalDateTime.of(availabilityDate, parsedStartTime);
         LocalDateTime endDateTime = LocalDateTime.of(deadlineDate, parsedEndTime);
+        if (startDateTime.isBefore(LocalDateTime.now())) {
+            throw new Exception("Job availability cannot be in the past.");
+        }
         if (!endDateTime.isAfter(startDateTime)) {
             throw new Exception(
                     "End date and time must be after start date and time."
             );
         }
+        return ChronoUnit.HOURS.between(startDateTime, endDateTime);
     }
     // Check whether a value is empty.
     private boolean isEmpty(String value) {

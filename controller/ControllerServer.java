@@ -232,13 +232,6 @@ public class ControllerServer {
     // Strict deserialization filter for incoming submissions.
     private static ObjectInputFilter.Status filterSubmission(ObjectInputFilter.FilterInfo info) {
         Class<?> type = info.serialClass();
-        System.err.println("Filter check: class=" +
-                        (type == null ? "null" : type.getName()) +
-                        ", depth=" + info.depth() +
-                        ", references=" + info.references() +
-                        ", bytes=" + info.streamBytes() +
-                        ", arrayLength=" + info.arrayLength()
-        );
         if (info.depth() > 5 ||
                 info.references() > 32 ||
                 info.streamBytes() > 65536 ||

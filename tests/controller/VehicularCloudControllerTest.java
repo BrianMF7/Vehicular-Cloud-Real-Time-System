@@ -281,7 +281,7 @@ class VehicularCloudControllerTest {
         assertTrue(empty.contains("Vehicles: 0 (0 available)"));
         assertTrue(empty.contains("Jobs: 0 (0 assigned)"));
         assertTrue(empty.contains("Total available compute: 0.0"));
-        assertTrue(empty.contains("Average waiting time: 0.0"));
+        assertTrue(empty.contains("Average waiting time (hours): 0.0"));
 
         VehicularCloudController controller = controller();
         controller.registerVehicle(vehicle("car-1"), 10.0);
@@ -357,7 +357,7 @@ class VehicularCloudControllerTest {
         assertEquals("job-1", job.getJobId());
         assertEquals("client", job.getClientId());
         assertEquals("11-01-2026", job.getAvailability());
-        assertEquals(5, job.getEstimatedDuration());
+        assertEquals(120, job.getEstimatedDuration());
         assertEquals("11-10-2026", job.getDeadline());
         assertEquals(2, job.getPriority());
         assertEquals("user", controller.getJobAccountName("job-1"));
@@ -490,7 +490,7 @@ class VehicularCloudControllerTest {
 
         List<String> lines = Files.readAllLines(LOG);
         assertEquals(1, lines.size());
-        assertTrue(lines.get(0).contains("|JOB|user|mail@test.edu|client|job-1|11-01-2026|5|11-10-2026|1"));
+        assertTrue(lines.get(0).contains("|JOB|user|mail@test.edu|client|job-1|11-01-2026||5|11-10-2026||1|HOURS|"));
         assertEquals("11-01-2026", controller.getJobs().get(0).getAvailability());
         assertEquals("user", controller.getJobAccountName("job-1"));
         assertEquals("mail@test.edu", controller.getJobAccountEmail("job-1"));
@@ -506,7 +506,7 @@ class VehicularCloudControllerTest {
 
         List<String> lines = Files.readAllLines(LOG);
         assertEquals(1, lines.size());
-        assertTrue(lines.get(0).contains("|JOB|||client-1|form-job|12-01-2026|2|12-10-2026|3"));
+        assertTrue(lines.get(0).contains("|JOB|||client-1|form-job|12-01-2026||2|12-10-2026||3|HOURS|"));
         assertEquals("12-01-2026", controller.getJobs().get(0).getAvailability());
         assertEquals(3, controller.getJobs().get(0).getPriority());
 
@@ -583,7 +583,7 @@ class VehicularCloudControllerTest {
 
     // JOB log line matching the format the controller writes.
     private String jobLine(String jobId, int duration, int priority) {
-        return "2026-10-25 13:00:00|JOB|||client|" + jobId + "||" + duration + "|11-01-2026|" + priority;
+        return "2026-10-25 13:00:00|JOB|||client|" + jobId + "|||" + duration + "|11-01-2026||" + priority + "|HOURS|";
     }
 
     // Assignment example: P2, P5, P1, P3, P4 with completion times 1, 6, 16, 18, 19.

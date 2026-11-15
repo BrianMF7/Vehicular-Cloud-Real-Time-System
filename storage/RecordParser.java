@@ -12,7 +12,7 @@ public class RecordParser {
 
     // Parse a JOB line:
     // Old: timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority
-    // New: timestamp|JOB|username|email|clientId|jobId|availability|duration|deadline|priority|startTime|endTime
+    // Current records end with HOURS. Older records stored durations in days.
     public static Job parseJobRecord(String recordLine) {
 
         if (recordLine == null || !recordLine.contains("JOB|")) {
@@ -30,8 +30,10 @@ public class RecordParser {
             if (fieldCount > 0 && parts[parts.length - 1].isEmpty()) {
                 fieldCount--;
             }
+            boolean hoursRecord = fieldCount == 11
+                    && "HOURS".equals(parts[dataIndex + 10].trim());
             // Support older records without times and records with times.
-            if (fieldCount != 8 && fieldCount != 10) {
+            if (fieldCount != 8 && fieldCount != 10 && !hoursRecord) {
                 return null;
             }
 
@@ -67,6 +69,9 @@ public class RecordParser {
             }
             if (isBlank(jobId) || duration <= 0 || priority <= 0) {
                 return null;
+            }
+            if (!hoursRecord) {
+                duration = Math.multiplyExact(duration, 24);
             }
             return new Job(
                     clientId,
