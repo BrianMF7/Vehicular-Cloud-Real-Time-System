@@ -150,27 +150,44 @@ public class MainFrame extends JFrame implements SaveListener {
         
         Font defaultFont = new JLabel().getFont();
         
+        //Make it clear whether the person is using the normal user area or the restricted controller area.
+        Color actionColor = controllerSignIn ? new Color(180, 83, 9) : new Color(59, 130, 246);
+        String portalName = controllerSignIn ? "VCRTS Controller Portal" : "VCRTS User Portal";
+
         //Title section
-        JLabel title = new JLabel("VCRTS: Vehicular Cloud");
+        JLabel title = new JLabel(portalName);
            title.setFont(defaultFont.deriveFont(Font.BOLD, 22f));
+        title.setForeground(controllerSignIn ? new Color(146, 64, 14) : new Color(30, 64, 175));
            title.setAlignmentX(Component.LEFT_ALIGNMENT);
         cardPanel.add(title);
         
         cardPanel.add(Box.createRigidArea(new Dimension(0, 6)));
         
-        String subtitleText = "Please sign in to continue";
+        String subtitleText = "Sign in or create a user account.";
         if (controllerSignIn && isSignUpMode) {
-            subtitleText = "Create the controller account";
+            subtitleText = "Set up the one-time controller account.";
         } else if (controllerSignIn) {
-            subtitleText = "Controller sign in";
+            subtitleText = "Restricted access for the VC Controller.";
         } else if (isSignUpMode) {
-            subtitleText = "Create your account";
+            subtitleText = "Create a user account to continue.";
         }
         JLabel subtitle = new JLabel(subtitleText);
           subtitle.setFont(defaultFont.deriveFont(Font.PLAIN, 14f));
              subtitle.setForeground(new Color(107, 114, 128));
           subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
         cardPanel.add(subtitle);
+
+        if (controllerSignIn) {
+            cardPanel.add(Box.createRigidArea(new Dimension(0, 12)));
+            JLabel restrictedNotice = new JLabel("CONTROLLER ACCESS ONLY");
+            restrictedNotice.setFont(defaultFont.deriveFont(Font.BOLD, 11f));
+            restrictedNotice.setForeground(new Color(146, 64, 14));
+            restrictedNotice.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(251, 191, 36), 1),
+                    BorderFactory.createEmptyBorder(5, 8, 5, 8)));
+            restrictedNotice.setAlignmentX(Component.LEFT_ALIGNMENT);
+            cardPanel.add(restrictedNotice);
+        }
         
         cardPanel.add(Box.createRigidArea(new Dimension(0, 24)));
         
@@ -260,14 +277,23 @@ public class MainFrame extends JFrame implements SaveListener {
         
         cardPanel.add(Box.createRigidArea(new Dimension(0, 12)));
         
-        //Main action button (Sign In or Sign Up)
-        String buttonText = isSignUpMode ? "Sign Up" : "Sign In";
+        //Use role-specific action text so users do not confuse controller access with user access.
+        String buttonText;
+        if (controllerSignIn && isSignUpMode) {
+            buttonText = "Create Controller Account";
+        } else if (controllerSignIn) {
+            buttonText = "Sign In as Controller";
+        } else if (isSignUpMode) {
+            buttonText = "Create User Account";
+        } else {
+            buttonText = "Sign In as User";
+        }
         JButton mainButton = new JButton(buttonText);
         mainButton.setPreferredSize(new Dimension(340, 44));
         mainButton.setMaximumSize(new Dimension(340, 44));
         mainButton.setFont(defaultFont.deriveFont(Font.BOLD, 15f));
         mainButton.setForeground(Color.WHITE);
-        mainButton.setBackground(new Color(59, 130, 246));
+        mainButton.setBackground(actionColor);
         mainButton.setBorder(BorderFactory.createEmptyBorder(12, 24, 12, 24));
         mainButton.setFocusPainted(false);
         mainButton.setOpaque(true);
@@ -297,15 +323,18 @@ public class MainFrame extends JFrame implements SaveListener {
         togglePanel.setOpaque(false);
         togglePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        String linkText = isSignUpMode ? "Already have an account? " : "Don't have an account? ";
+        String accountType = controllerSignIn ? "controller account" : "user account";
+        String linkText = isSignUpMode
+                ? "Already have a " + accountType + "? "
+                : "Need a " + accountType + "? ";
         JLabel toggleText = new JLabel(linkText);
         toggleText.setFont(defaultFont.deriveFont(Font.PLAIN, 13f));
         toggleText.setForeground(new Color(107, 114, 128));
         
-        String linkButtonText = isSignUpMode ? "Sign In" : "Sign Up";
+        String linkButtonText = isSignUpMode ? "Sign In" : "Create Account";
         JButton toggleLink = new JButton(linkButtonText);
         toggleLink.setFont(defaultFont.deriveFont(Font.BOLD, 13f));
-        toggleLink.setForeground(new Color(59, 130, 246));
+        toggleLink.setForeground(actionColor);
         toggleLink.setBorder(null);
         toggleLink.setContentAreaFilled(false);
         toggleLink.setFocusPainted(false);
@@ -323,7 +352,7 @@ public class MainFrame extends JFrame implements SaveListener {
 
         if (controllerSignIn) {
             cardPanel.add(Box.createRigidArea(new Dimension(0, 8)));
-            JButton userButton = new JButton("User sign in");
+            JButton userButton = new JButton("← Back to User Sign In");
             userButton.setAlignmentX(Component.LEFT_ALIGNMENT);
             userButton.setBorder(null);
             userButton.setContentAreaFilled(false);
@@ -340,11 +369,11 @@ public class MainFrame extends JFrame implements SaveListener {
             cardPanel.add(userButton);
         } else {
             cardPanel.add(Box.createRigidArea(new Dimension(0, 8)));
-            JButton controllerButton = new JButton("Controller sign in");
+            JButton controllerButton = new JButton("Controller Access (Restricted)");
             controllerButton.setAlignmentX(Component.LEFT_ALIGNMENT);
             controllerButton.setBorder(null);
             controllerButton.setContentAreaFilled(false);
-            controllerButton.setForeground(new Color(59, 130, 246));
+            controllerButton.setForeground(new Color(180, 83, 9));
             controllerButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
             controllerButton.addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
