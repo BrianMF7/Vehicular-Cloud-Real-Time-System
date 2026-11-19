@@ -25,22 +25,25 @@ public final class DateTimePicker extends JPanel {
     private final JButton dateButton = new JButton("Choose date");
     private final JComboBox<String> hours = new JComboBox<>();
     private final JComboBox<String> minutes = new JComboBox<>();
+    private final JComboBox<String> period = new JComboBox<>(new String[] {"AM", "PM"});
     private final JPopupMenu calendar = new JPopupMenu();
     private LocalDate selectedDate;
     private YearMonth displayedMonth = YearMonth.now();
 
     public DateTimePicker() {
         super(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        for (int hour = 0; hour < 24; hour++) {
-            hours.addItem(String.format("%02d", hour));
+        for (int hour = 1; hour <= 12; hour++) {
+            hours.addItem(Integer.toString(hour));
         }
         for (int minute = 0; minute < 60; minute++) {
             minutes.addItem(String.format("%02d", minute));
         }
         hours.setSelectedIndex(-1);
         minutes.setSelectedIndex(-1);
-        hours.setToolTipText("Hour (00–23)");
+        period.setSelectedIndex(-1);
+        hours.setToolTipText("Hour (1–12)");
         minutes.setToolTipText("Minute (00–59)");
+        period.setToolTipText("AM or PM");
         dateButton.setToolTipText("Open calendar to choose a date");
         dateButton.addActionListener(event -> showCalendar());
 
@@ -49,13 +52,16 @@ public final class DateTimePicker extends JPanel {
         add(hours);
         add(new JLabel(":"));
         add(minutes);
+        add(period);
     }
 
     public LocalDateTime getSelectedDateTime() {
-        if (selectedDate == null || hours.getSelectedIndex() < 0 || minutes.getSelectedIndex() < 0) {
+        if (selectedDate == null || hours.getSelectedIndex() < 0
+                || minutes.getSelectedIndex() < 0 || period.getSelectedIndex() < 0) {
             return null;
         }
-        return selectedDate.atTime(hours.getSelectedIndex(), minutes.getSelectedIndex());
+        int hour = to24Hour((String) hours.getSelectedItem(), (String) period.getSelectedItem());
+        return selectedDate.atTime(hour, minutes.getSelectedIndex());
     }
 
     public void clearSelection() {
@@ -63,6 +69,22 @@ public final class DateTimePicker extends JPanel {
         dateButton.setText("Choose date");
         hours.setSelectedIndex(-1);
         minutes.setSelectedIndex(-1);
+        period.setSelectedIndex(-1);
+    }
+
+    // Convert the familiar 12-hour clock selection into the 24-hour value LocalDateTime needs.
+    static int to24Hour(String hourText, String periodText) {
+        int hour = Integer.parseInt(hourText);
+        if (hour < 1 || hour > 12) {
+            throw new IllegalArgumentException("Hour must be between 1 and 12.");
+        }
+        if ("AM".equals(periodText)) {
+            return hour == 12 ? 0 : hour;
+        }
+        if ("PM".equals(periodText)) {
+            return hour == 12 ? 12 : hour + 12;
+        }
+        throw new IllegalArgumentException("Time period must be AM or PM.");
     }
 
     private void showCalendar() {

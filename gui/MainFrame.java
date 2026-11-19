@@ -29,6 +29,8 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import java.util.List;
@@ -801,7 +803,14 @@ public class MainFrame extends JFrame implements SaveListener {
             throw new IllegalArgumentException("No screen for " + nextRole);
         }
         formHolder.removeAll();
-        formHolder.add(form, BorderLayout.CENTER);
+        // The owner and client forms can be taller than the window. Put each form in a
+        // scroll pane so the mouse wheel reaches the fields below the visible area.
+        JScrollPane formScroll = new JScrollPane(
+                form,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        formScroll.getVerticalScrollBar().setUnitIncrement(16);
+        formHolder.add(formScroll, BorderLayout.CENTER);
         
         stepLabel.setText("Step 2 of 2");
         promptLabel.setText(prompt);

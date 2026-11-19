@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -34,11 +35,14 @@ public class ClientPanel extends JPanel {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("hh:mm a", Locale.US);
     private final DateTimePicker jobAvailability = new DateTimePicker();
 
-    private final JTextField jobDurationField = new JTextField(22);
+    // Common values are suggested, but the combo box remains editable for other valid values.
+    private final JComboBox<String> jobDurationField = createEditableNumberCombo(
+            "1", "2", "4", "8", "12", "24");
 
     private final DateTimePicker jobDeadline = new DateTimePicker();
 
-    private final JTextField priorityField = new JTextField(22);
+    private final JComboBox<String> priorityField = createEditableNumberCombo(
+            "1", "2", "3", "4", "5");
 
     private final DefaultTableModel tableModel = new DefaultTableModel(
             new Object[]{
@@ -80,7 +84,8 @@ public class ClientPanel extends JPanel {
         FormRows.addRow(fields, 3, "Job duration (hours) *", jobDurationField);
         FormRows.addRow(fields, 4, "Job deadline date and time *", jobDeadline);
         FormRows.addRow(fields, 5, "Priority (positive whole number) *", priorityField);
-        JLabel hint = new JLabel("Choose dates and times. Duration must fit between availability and deadline.");
+        JLabel hint = new JLabel(
+                "Choose dates and times. Suggested duration and priority values are optional; you can type another positive whole number.");
         JPanel form = new JPanel(new BorderLayout(0, 8));
         form.add(fields, BorderLayout.CENTER);
         form.add(hint, BorderLayout.SOUTH);
@@ -159,9 +164,9 @@ public class ClientPanel extends JPanel {
                 clientIdField.getText(),
                 jobIdField.getText(),
                 availabilityTime.format(DATE_FORMAT),
-                jobDurationField.getText(),
+                comboText(jobDurationField),
                 deadlineTime.format(DATE_FORMAT),
-                priorityField.getText(),
+                comboText(priorityField),
                 availabilityTime.format(TIME_FORMAT),
                 deadlineTime.format(TIME_FORMAT)
         );
@@ -256,9 +261,28 @@ public class ClientPanel extends JPanel {
         clientIdField.setText("");
         jobIdField.setText("");
         jobAvailability.clearSelection();
-        jobDurationField.setText("");
+        clearCombo(jobDurationField);
         jobDeadline.clearSelection();
-        priorityField.setText("");
+        clearCombo(priorityField);
+    }
+
+    // Gives users common choices while still allowing a custom positive whole number.
+    private static JComboBox<String> createEditableNumberCombo(String... suggestedValues) {
+        JComboBox<String> combo = new JComboBox<>(suggestedValues);
+        combo.setEditable(true);
+        combo.setSelectedIndex(-1);
+        return combo;
+    }
+
+    // Reads either the selected suggestion or the value typed directly into the combo box.
+    private static String comboText(JComboBox<String> combo) {
+        Object value = combo.getEditor().getItem();
+        return value == null ? "" : value.toString().trim();
+    }
+
+    private static void clearCombo(JComboBox<String> combo) {
+        combo.setSelectedIndex(-1);
+        combo.getEditor().setItem("");
     }
 
     // Add a job to the table or update its existing status.

@@ -379,7 +379,7 @@ class VehicularCloudControllerTest {
         assertEquals(0, controller.getJobs().size());
     }
 
-    // Verifies that the car form can store owner name and account email with a car.
+    // Verifies that the car form can store an owner ID and account email with a car.
     @Test
     void shouldRememberOwnerWhenRegisteringAVehicle() {
         VehicularCloudController controller = controller();
