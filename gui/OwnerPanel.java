@@ -2,16 +2,22 @@ package gui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -20,6 +26,8 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.Timer;
 import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 
 import controller.ControllerClient;
@@ -30,6 +38,7 @@ import model.RequestType;
 import model.ServerResponse;
 import model.SubmissionRequest;
 import model.Vehicle;
+import model.VehicleCatalog;
 
 public class OwnerPanel extends JPanel {
     // How we read and write dates.
@@ -39,9 +48,9 @@ public class OwnerPanel extends JPanel {
 
     // All the text boxes for owner information.
     private final JTextField ownerId = new JTextField(22);
-    private final JTextField make = new JTextField(22);
-    private final JTextField model = new JTextField(22);
-    private final JTextField year = new JTextField(22);
+    private final JComboBox<String> make = new JComboBox<>();
+    private final JComboBox<String> model = new JComboBox<>();
+    private final JComboBox<String> year = new JComboBox<>();
     private final DateTimePicker arrival = new DateTimePicker();
     private final DateTimePicker departure = new DateTimePicker();
     private final JTextField computePower = new JTextField(22);
@@ -53,9 +62,11 @@ public class OwnerPanel extends JPanel {
     private final JLabel submissionStatus = new JLabel(" ");
 
     private String sendingRequestId;
+    private boolean updatingVehicleChoices;
+    private boolean filteringVehicleChoices;
 
     private final DefaultTableModel vehicleRows = new DefaultTableModel(
-            new String[] {"Vehicle ID", "Owner", "Car model", "Current status"}, 0) {
+            new String[] {"Vehicle ID", "Owner ID", "Car model", "Current status"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) {
             return false;
@@ -79,15 +90,17 @@ public class OwnerPanel extends JPanel {
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
+        setUpVehicleChoices();
+
         JPanel registration = new JPanel(new BorderLayout(0, 8));
 
         // Put all the labels and fields in the middle.
         JPanel fields = FormRows.fields();
 
-        FormRows.addRow(fields, 0, "Vehicle owner ID / full name *", ownerId);
+        FormRows.addRow(fields, 0, "Vehicle owner ID *", ownerId);
         FormRows.addRow(fields, 1, "Make *", make);
         FormRows.addRow(fields, 2, "Model *", model);
-        FormRows.addRow(fields, 3, "Year *", year);
+        FormRows.addRow(fields, 3, "Model year *", year);
         FormRows.addRow(fields, 4, "Arrival date and time *", arrival);
         FormRows.addRow(fields, 5, "Estimated departure date and time *", departure);
         FormRows.addRow(fields, 6, "Compute power (units) *", computePower);
@@ -166,9 +179,9 @@ public class OwnerPanel extends JPanel {
 
         // Grab everything the user entered.
         String owner = ownerId.getText().trim();
-        String carMake = make.getText().trim();
-        String carModel = model.getText().trim();
-        String carYear = year.getText().trim();
+        String carMake = comboText(make);
+        String carModel = comboText(model);
+        String carYear = comboText(year);
 
         LocalDateTime arrivalTime = arrival.getSelectedDateTime();
         LocalDateTime departureTime = departure.getSelectedDateTime();
@@ -200,8 +213,9 @@ public class OwnerPanel extends JPanel {
 
             int yearValue = Integer.parseInt(carYear);
 
-            if (yearValue < 1995 || yearValue > 2027) {
-                showError("Year must be between 1995 and 2027.");
+            if (yearValue < VehicleCatalog.MIN_MODEL_YEAR || yearValue > VehicleCatalog.MAX_MODEL_YEAR) {
+                showError("Year must be between " + VehicleCatalog.MIN_MODEL_YEAR
+                        + " and " + VehicleCatalog.MAX_MODEL_YEAR + ".");
                 return;
             }
 
@@ -365,7 +379,7 @@ public class OwnerPanel extends JPanel {
             double power,
             String status) {
 
-        return "Owner: " + owner
+        return "Owner ID: " + owner
                 + "\nVehicle ID: " + vehicle.getVehicleId()
                 + "\nVehicle: " + vehicle.getYear()
                 + " " + vehicle.getMake()
@@ -378,12 +392,168 @@ public class OwnerPanel extends JPanel {
 
     private void clearFields() {
         ownerId.setText("");
-        make.setText("");
-        model.setText("");
-        year.setText("");
+        clearCombo(make);
+        clearCombo(model);
+        clearCombo(year);
         arrival.clearSelection();
         departure.clearSelection();
         computePower.setText("");
+    }
+
+    // Populate the first dropdown and keep all three fields editable for unlisted vehicles.
+    private void setUpVehicleChoices() {
+        configureEditableCombo(make, "Choose or type a make");
+        configureEditableCombo(model, "Choose or type a model");
+        configureEditableCombo(year, "Choose or type a year");
+
+        for (String makeName : VehicleCatalog.getMakes()) {
+            make.addItem(makeName);
+        }
+        make.setSelectedIndex(-1);
+
+        make.addActionListener(event -> refreshModelChoices());
+        model.addActionListener(event -> refreshYearChoices());
+
+        installLiveFilter(make, VehicleCatalog::getMakes, this::refreshModelChoices);
+        installLiveFilter(model, () -> VehicleCatalog.getModels(comboText(make)),
+                this::refreshYearChoices);
+        installLiveFilter(year, () -> VehicleCatalog.getYears(comboText(make), comboText(model)),
+                null);
+    }
+
+    // A selected make determines the models shown in the next dropdown.
+    private void refreshModelChoices() {
+        if (updatingVehicleChoices || filteringVehicleChoices) {
+            return;
+        }
+        updatingVehicleChoices = true;
+        replaceChoices(model, VehicleCatalog.getModels(comboText(make)));
+        replaceChoices(year, java.util.Collections.<String>emptyList());
+        updatingVehicleChoices = false;
+    }
+
+    // A selected make and model determine the available model-year suggestions.
+    private void refreshYearChoices() {
+        if (updatingVehicleChoices || filteringVehicleChoices) {
+            return;
+        }
+        updatingVehicleChoices = true;
+        replaceChoices(year, VehicleCatalog.getYears(comboText(make), comboText(model)));
+        updatingVehicleChoices = false;
+    }
+
+    private static void configureEditableCombo(JComboBox<String> combo, String toolTip) {
+        combo.setEditable(true);
+        combo.setSelectedIndex(-1);
+        combo.setToolTipText(toolTip);
+    }
+
+    // Filters an open dropdown as the user types, like a car-shopping website search box.
+    private void installLiveFilter(JComboBox<String> combo, Supplier<List<String>> choiceSource,
+            Runnable exactMatchAction) {
+        JTextField editor = (JTextField) combo.getEditor().getEditorComponent();
+        Runnable filterFromEditor = () -> filterChoices(
+                combo, choiceSource.get(), exactMatchAction, editor.getText());
+        editor.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent event) {
+                queueFilter();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent event) {
+                queueFilter();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent event) {
+                queueFilter();
+            }
+
+            private void queueFilter() {
+                if (filteringVehicleChoices) {
+                    return;
+                }
+                SwingUtilities.invokeLater(filterFromEditor);
+            }
+        });
+
+        // On macOS, an editable combo box may keep its unfiltered popup open while typing.
+        // Filtering on key release updates that popup immediately; the document listener also
+        // covers pasted text and other non-keyboard edits.
+        editor.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyReleased(KeyEvent event) {
+                if (!filteringVehicleChoices) {
+                    filterFromEditor.run();
+                }
+            }
+        });
+    }
+
+    private void filterChoices(JComboBox<String> combo, List<String> choices,
+            Runnable exactMatchAction, String typedText) {
+        if (filteringVehicleChoices) {
+            return;
+        }
+        List<String> matches = matchingChoices(choices, typedText);
+
+        filteringVehicleChoices = true;
+        combo.removeAllItems();
+        for (String match : matches) {
+            combo.addItem(match);
+        }
+        combo.setSelectedIndex(-1);
+        combo.getEditor().setItem(typedText);
+        filteringVehicleChoices = false;
+
+        if (exactMatchAction != null && containsIgnoreCase(matches, typedText)) {
+            exactMatchAction.run();
+        }
+        if (!typedText.isEmpty() && !matches.isEmpty() && combo.isShowing()) {
+            SwingUtilities.invokeLater(combo::showPopup);
+        } else if (matches.isEmpty()) {
+            combo.hidePopup();
+        }
+    }
+
+    // Package-visible for the focused UI test. Matching ignores letter case and starts at the first letter.
+    static List<String> matchingChoices(List<String> choices, String typedText) {
+        String prefix = typedText == null ? "" : typedText.trim().toLowerCase(Locale.ROOT);
+        List<String> matches = new ArrayList<>();
+        for (String choice : choices) {
+            if (prefix.isEmpty() || choice.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                matches.add(choice);
+            }
+        }
+        return matches;
+    }
+
+    private static boolean containsIgnoreCase(List<String> choices, String value) {
+        for (String choice : choices) {
+            if (choice.equalsIgnoreCase(value == null ? "" : value.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void replaceChoices(JComboBox<String> combo, List<String> choices) {
+        combo.removeAllItems();
+        for (String choice : choices) {
+            combo.addItem(choice);
+        }
+        clearCombo(combo);
+    }
+
+    private static String comboText(JComboBox<String> combo) {
+        Object value = combo.getEditor().getItem();
+        return value == null ? "" : value.toString().trim();
+    }
+
+    private static void clearCombo(JComboBox<String> combo) {
+        combo.setSelectedIndex(-1);
+        combo.getEditor().setItem("");
     }
 
 
