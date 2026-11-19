@@ -31,7 +31,7 @@ public class VehicularCloudController {
     private final List<Job> jobs;
     // Compute power for each car. The Vehicle class does not store this yet.
     private final Map<String, Double> computeByVehicleId;
-    // Owner name and signed-in email for each car.
+    // Owner ID and signed-in email for each car.
     private final Map<String, String> ownerByVehicleId;
     private final Map<String, String> emailByVehicleId;
     // True when a car is already working on a job.

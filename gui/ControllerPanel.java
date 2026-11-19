@@ -51,7 +51,7 @@ public class ControllerPanel extends JPanel {
     private final DefaultTableModel vehicleRows = new DefaultTableModel(
             new String[] {
                     "Vehicle ID",
-                    "Owner",
+                    "Owner ID",
                     "Account Email",
                     "Vehicle",
                     "Arrival",
@@ -254,7 +254,7 @@ public class ControllerPanel extends JPanel {
 
             Vehicle vehicle = request.getVehicle();
 
-            return "Owner: " + request.getOwnerId()
+            return "Owner ID: " + request.getOwnerId()
                     + " | " + vehicle.getYear()
                     + " " + vehicle.getMake()
                     + " " + vehicle.getModel()
